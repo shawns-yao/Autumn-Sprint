@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Download, RefreshCw, Save } from 'lucide-react'
+import { BellRing, DatabaseBackup, Download, RefreshCw, Save, Server } from 'lucide-react'
 import { post, request } from '../api'
 import { Button, Heading } from './Shared'
 
@@ -40,16 +40,16 @@ export default function SettingsView({ onSaved }: { onSaved: () => void }) {
     } catch (error) { setError((error as Error).message) }
     finally { setBusy(false) }
   }
-  return <section className="content real-settings"><Heading title="设置" />
+  return <section className="content real-settings settings-page"><Heading title="设置" meta="管理本地服务、站内提醒和数据导出。" />
     {error && <p role="alert" className="resources-error">{error}<Button size="small" onClick={load} disabled={busy}>重新加载</Button></p>}
-    <section><h2>服务状态</h2><div className="settings-service"><span role="status">{health}</span><Button icon={RefreshCw} disabled={busy} onClick={check}>检测连接</Button></div></section>
-    <section><h2>站内提醒</h2>{settings ? <fieldset disabled={busy}>
+    <section className="settings-card"><header className="settings-card-heading"><span className="settings-card-icon service"><Server size={20} /></span><div><h2>服务状态</h2><p>检查后端与本地数据库是否可以正常访问</p></div></header><div className="settings-service"><span className={`settings-health ${health.includes('正常') ? 'healthy' : health.includes('失败') || health.includes('异常') ? 'failed' : ''}`} role="status"><i />{health}</span><Button icon={RefreshCw} disabled={busy} onClick={check}>检测连接</Button></div></section>
+    <section className="settings-card"><header className="settings-card-heading"><span className="settings-card-icon reminder"><BellRing size={20} /></span><div><h2>站内提醒</h2><p>按你的求职节奏设置待办提醒</p></div></header>{settings ? <fieldset disabled={busy}>
       <label className="real-setting-row"><input type="checkbox" checked={settings.staleEnabled} onChange={event => setSettings({ ...settings, staleEnabled: event.target.checked })} /><span>岗位长期未更新</span><input aria-label="未更新天数" type="number" min={1} max={365} value={settings.staleDays} onChange={event => setSettings({ ...settings, staleDays: Number(event.target.value) })} /><span>天</span></label>
       <label className="real-setting-row"><input type="checkbox" checked={settings.interviewEnabled} onChange={event => setSettings({ ...settings, interviewEnabled: event.target.checked })} /><span>面试提前提醒</span><input aria-label="面试提前小时" type="number" min={1} max={168} value={settings.interviewHours} onChange={event => setSettings({ ...settings, interviewHours: Number(event.target.value) })} /><span>小时</span></label>
       <label className="real-setting-row"><input type="checkbox" checked={settings.examEnabled} onChange={event => setSettings({ ...settings, examEnabled: event.target.checked })} /><span>测评 / 笔试提前提醒</span><input aria-label="考试提前小时" type="number" min={1} max={168} value={settings.examHours} onChange={event => setSettings({ ...settings, examHours: Number(event.target.value) })} /><span>小时</span></label>
       <Button icon={Save} variant="primary" onClick={save}>保存规则</Button>
     </fieldset> : <p>提醒规则尚未加载</p>}</section>
-    <section><h2>导出数据</h2><Button icon={Download} disabled={busy} onClick={exportData}>导出记录 JSON</Button></section>
+    <section className="settings-card settings-export"><header className="settings-card-heading"><span className="settings-card-icon export"><DatabaseBackup size={20} /></span><div><h2>导出数据</h2><p>导出岗位、笔记、资源和提醒设置</p></div></header><Button icon={Download} disabled={busy} onClick={exportData}>导出记录 JSON</Button></section>
     <p role="status">{message}</p>
   </section>
 }

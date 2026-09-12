@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ArrowRight, Bell, Plus, RefreshCw } from 'lucide-react'
+import { ArrowRight, Bell, BriefcaseBusiness, ChartNoAxesCombined, FileStack, House, NotebookPen, Plus, RefreshCw, Settings2, type LucideIcon } from 'lucide-react'
 import ApplicationsView from './components/Applications'
 import ApplicationDialog from './components/ApplicationDialog'
 import Overview from './components/Overview'
@@ -14,7 +14,14 @@ import './components/home.css'
 import './components/connected.css'
 
 type Reminder = { id: string; applicationId: string; company: string; label: string }
-const nav: [View, string][] = [['home', '首页'], ['overview', '投递总览'], ['applications', '岗位'], ['notes', '笔记'], ['documents', '投递资源'], ['settings', '设置']]
+const nav: { id: View; label: string; icon: LucideIcon }[] = [
+  { id: 'home', label: '首页', icon: House },
+  { id: 'overview', label: '投递总览', icon: ChartNoAxesCombined },
+  { id: 'applications', label: '岗位', icon: BriefcaseBusiness },
+  { id: 'notes', label: '笔记', icon: NotebookPen },
+  { id: 'documents', label: '投递资源', icon: FileStack },
+  { id: 'settings', label: '设置', icon: Settings2 },
+]
 
 export default function App() {
   const [view, setView] = useState<View>('home')
@@ -54,14 +61,14 @@ export default function App() {
   return <div className="war-room top-navigation">
     <header className="site-header">
       <button className="site-brand" onClick={() => navigate('home')} aria-label="秋招速递首页"><img src="/images/brand-leaf.png" alt="" width="44" height="48" /><span><strong>秋招速递</strong><small>让理想的工作，与你更近</small></span></button>
-      <nav aria-label="主导航">{nav.map(([id, label]) => <button key={id} aria-current={view === id ? 'page' : undefined} onClick={() => navigate(id)}>{label}</button>)}</nav>
+      <nav aria-label="主导航">{nav.map(({ id, label, icon: Icon }) => <button key={id} aria-current={view === id ? 'page' : undefined} onClick={() => navigate(id)}><Icon size={16} strokeWidth={1.9} />{label}</button>)}</nav>
       <div className="header-workspace-actions"><IconButton icon={Bell} label={`站内提醒，${reminders.length} 条`} aria-expanded={showReminders} onClick={() => setShowReminders(!showReminders)} /><Button variant="primary" onClick={() => navigate('overview')}>进入工作台<ArrowRight size={16} /></Button></div>
     </header>
     {showReminders && <section className="reminders-panel" aria-label="站内提醒"><h2>站内提醒</h2>{dataState !== 'server' ? <p>服务未连接，无法读取提醒</p> : reminders.length ? reminders.map(item => <button key={item.id} onClick={() => { const app = apps.find(app => app.id === item.applicationId); if (app) setSelected(app); setShowReminders(false) }}><strong>{item.company}</strong><span>{item.label}</span></button>) : <p>暂无提醒</p>}</section>}
     <main className="war-main">
       {['overview', 'applications'].includes(view) && <header className="top-line">
-        <span className="crumb">秋招速递 / {nav.find(item => item[0] === view)?.[1]}</span>
-        <div className="top-actions"><SearchField label="搜索岗位" value={query} placeholder="搜索公司、岗位或状态" onChange={event => { setQuery(event.target.value); if (event.target.value.trim()) setView('applications') }} /><span className="sync">{dataState === 'server' ? '已连接' : dataState === 'loading' ? '正在加载' : '未连接'}</span><IconButton icon={RefreshCw} label="刷新数据" onClick={refresh} /><Button variant="primary" icon={Plus} disabled={dataState !== 'server'} onClick={() => setSelected(makeApplication())}>新建岗位</Button></div>
+        <span className="crumb">秋招速递 / {nav.find(item => item.id === view)?.label}</span>
+        <div className="top-actions"><SearchField label="搜索岗位" value={query} placeholder="搜索公司、岗位或状态" onChange={event => { setQuery(event.target.value); if (event.target.value.trim()) setView('applications') }} /><span className={`sync sync-${dataState}`}><i />{dataState === 'server' ? '已连接' : dataState === 'loading' ? '正在加载' : '未连接'}</span><IconButton icon={RefreshCw} label="刷新数据" onClick={refresh} /><Button variant="primary" icon={Plus} disabled={dataState !== 'server'} onClick={() => setSelected(makeApplication())}>新建岗位</Button></div>
       </header>}
       <div className="app-canvas">
         {view === 'home' && <HomePage onView={navigate} />}
