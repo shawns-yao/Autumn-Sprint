@@ -1,0 +1,97 @@
+import { useState } from 'react'
+import { BarChart3, CalendarDays, ChevronRight, ClipboardList, Filter, Send, TrendingUp, Trophy, CircleX } from 'lucide-react'
+import { eventsFor, getStage, stageFields, isClosed, localDate, type Application, type View } from '../model'
+import './overview.css'
+
+type Props = {
+  apps: Application[]
+  onOpen: (app: Application) => void
+  onView: (view: View) => void
+}
+
+const stages = ['已投递', '测评', '笔试', 'AI 面试', '一面', '二面', '三面', 'HR 面']
+const colors = ['#5197f5', '#8bbfff', '#8fdcc1', '#7fb8dd', '#bc95f3', '#ffb471', '#efcf74', '#fa96a9']
+
+export default function Overview({ apps, onOpen, onView }: Props) {
+  const [company, setCompany] = useState('')
+  const now = new Date()
+  const today = localDate(now)
+  const active = apps.filter(app => !isClosed(app) && app.status !== 'Offer')
+  const offers = apps.filter(app => !isClosed(app) && app.status === 'Offer')
+  const distribution = stages.map(stage => ({
+    stage,
+    count: active.filter(app => (app.status === '技术面' ? '一面' : app.status) === stage).length,
+  }))
+  const maxCount = Math.max(1, ...distribution.map(item => item.count))
+  const scoped = company ? apps.filter(app => app.company === company) : apps
+  const recorded = new Set(['已安排', '已完成', '未通过'])
+  const enteredInterview = (app: Application) => stageFields.slice(2).some(([key]) => recorded.has(getStage(app, key).status))
+  const screened = scoped.filter(app => [app.evaluation, app.written].some(stage => recorded.has(stage.status))).length
+  const funnel = [
+    { label: '投递', count: scoped.length, description: '个投递', color: '#569cf5' },
+    { label: '测评 / 笔试', count: screened, description: '个有考试记录', color: '#acd2fc' },
+    { label: '面试记录', count: scoped.filter(enteredInterview).length, description: '个有面试记录', color: '#b9e9d7' },
+    { label: 'Offer', count: scoped.filter(app => !isClosed(app) && app.status === 'Offer').length, description: '个 Offer', color: '#fbd5d8' },
+  ]
+  const days = Array.from({ length: 30 }, (_, index) => {
+    const date = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 29 + index)
+    const key = localDate(date)
+    return { date: key, count: apps.filter(app => app.applied === key).length }
+  })
+  const chartMax = Math.max(4, Math.ceil(Math.max(...days.map(day => day.count)) / 4) * 4)
+  const monthCount = apps.filter(app => app.applied.startsWith(today.slice(0, 7)) && app.applied <= today).length
+  const upcoming = eventsFor(active).filter(event => !event.done
+    && `${event.date}T${event.time || '23:59'}` >= `${today}T${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`).slice(0, 4)
+  const metrics = [
+    { label: '进行中', value: active.length, note: '当前活跃流程', icon: Send, tone: 'blue' },
+    { label: '总投递', value: apps.length, note: '秋招累计投递', icon: ClipboardList, tone: 'blue' },
+    { label: '已结束', value: apps.filter(isClosed).length, note: '不合适 / 已淘汰', icon: CircleX, tone: 'red' },
+    { label: 'Offer', value: offers.length, note: '当前已获得', icon: Trophy, tone: 'orange' },
+  ]
+  return <section className="home-dashboard">
+    <header className="home-heading">
+      <p className="home-date">{now.toLocaleDateString('en-GB', { weekday: 'long' }).toUpperCase()} / {now.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase()}</p>
+      <h1>秋招总览</h1>
+      <p>这里汇总了你秋招的整体进展，保持专注，继续加油！</p>
+    </header>
+    <div className="home-metrics">
+      {metrics.map(({ label, value, note, icon: Icon, tone }) => <button key={label} className="home-metric" onClick={() => onView('applications')}>
+        <span className={`home-metric-icon ${tone}`}><Icon size={29} strokeWidth={1.8} /></span>
+        <span className="home-metric-text"><span>{label}</span><strong>{value}</strong><small>{note}</small></span>
+        <ChevronRight size={18} />
+      </button>)}
+    </div>
+    <div className="home-grid">
+      <section className="home-section">
+        <header className="home-section-heading"><BarChart3 /><div><h2>当前流程分布</h2><p>在进行中的 {active.length} 个流程中，各阶段的分布情况</p></div><button className="home-link" onClick={() => onView('applications')}>查看全部<ChevronRight size={15} /></button></header>
+        <div className="home-distribution">
+          {distribution.map(({ stage, count }, index) => <div className="home-stage" key={stage}>
+            <span>{stage}</span><div className="home-stage-track" role="meter" aria-label={stage} aria-valuemin={0} aria-valuemax={maxCount} aria-valuenow={count}><span style={{ width: `${count / maxCount * 100}%`, background: colors[index] }} /></div><strong>{count}</strong>
+          </div>)}
+        </div>
+      </section>
+      <section className="home-section">
+        <header className="home-section-heading"><Filter /><div><h2>流程记录覆盖</h2><p>各类已记录岗位占比，不推测初筛或历史转化</p></div><select aria-label="流程统计公司" value={company} onChange={event => setCompany(event.target.value)}><option value="">全部岗位</option>{[...new Set(apps.map(app => app.company))].map(name => <option key={name} value={name}>{name}</option>)}</select></header>
+        <div className="home-funnel">
+          {funnel.map((item, index) => <div className="home-funnel-row" key={item.label}>
+            <div className="home-funnel-shape" style={{ width: '100%', background: item.color, color: index === 0 ? '#fff' : '#173454' }}><span>{item.label}</span><strong>{item.count}</strong></div>
+            <div className="home-funnel-stat"><strong>{scoped.length ? Math.round(item.count / scoped.length * 100) : 0}%</strong><span>共 {item.count} {item.description}</span></div>
+          </div>)}
+        </div>
+      </section>
+      <section className="home-section home-lower">
+        <header className="home-section-heading"><TrendingUp /><div><h2>投递趋势</h2><p>近 30 天的投递数量变化{apps.some(app => !app.applied) && ` · ${apps.filter(app => !app.applied).length} 条日期待补充`}</p></div><span className="home-month-total">本月共投递 <b>{monthCount}</b> 个岗位</span></header>
+        <div className="home-chart" role="img" aria-label={`近30天投递趋势，共${days.reduce((sum, day) => sum + day.count, 0)}个岗位`}>
+          <div className="home-chart-axis">{[4, 3, 2, 1, 0].map(value => <span key={value}>{chartMax * value / 4}</span>)}</div>
+          <div className="home-chart-plot"><div className="home-chart-lines">{[0, 1, 2, 3, 4].map(value => <i key={value} />)}</div><div className="home-chart-bars">{days.map((day, index) => <div className="home-chart-column" key={day.date} title={`${day.date}：${day.count} 个投递`}><span style={{ height: `${day.count / chartMax * 100}%` }} />{(index % 3 === 0 || index === 29) && <small>{day.date.slice(5).replace('-', '/')}</small>}</div>)}</div></div>
+        </div>
+      </section>
+      <section className="home-section home-lower">
+        <header className="home-section-heading"><CalendarDays /><div><h2>即将到来的节点</h2><p>下一个重要的面试或考试安排</p></div><button className="home-link" onClick={() => onView('applications')}>查看岗位<ChevronRight size={15} /></button></header>
+        <div className="home-events">{upcoming.length ? upcoming.map(event => <button className="home-event" key={event.id} onClick={() => onOpen(event.app)}>
+          <strong>{event.date.slice(5).replace('-', ' / ')}</strong><span className="home-weekday">{new Date(`${event.date}T00:00:00`).toLocaleDateString('zh-CN', { weekday: 'short' })}</span><i style={{ background: colors[Math.max(0, stages.indexOf(event.label))] }} /><span className="home-event-title"><b>{event.app.company} · {event.label}</b>{(event.time || event.stage.location) && <small>{[event.time, event.stage.location].filter(Boolean).join(' · ')}</small>}</span><ChevronRight size={17} />
+        </button>) : <div className="home-no-events"><CalendarDays size={28} /><span>暂无即将到来的安排</span></div>}</div>
+      </section>
+    </div>
+  </section>
+}
