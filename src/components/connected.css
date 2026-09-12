@@ -1,0 +1,21 @@
+.header-workspace-actions { display: flex; align-items: center; gap: 12px; }
+.connection-state { padding: 70px 32px; text-align: center; color: #657486; }
+.real-settings { max-width: 1100px; margin: 0 auto; }
+.real-settings > section { padding: 24px 0; border-bottom: 1px solid #d9e1ea; }
+.real-settings h2 { margin: 0 0 20px; font-size: 18px; }
+.real-settings fieldset { border: 0; padding: 0; margin: 0; }
+.real-setting-row { display: flex; align-items: center; gap: 14px; margin: 0 0 22px; }
+.real-setting-row span:first-of-type { min-width: 180px; }
+.real-setting-row input[type="number"] { width: 90px; padding: 7px; border: 1px solid #d9e1ea; border-radius: 6px; }
+.real-setting-row input[type="checkbox"] { width: 17px; height: 17px; }
+.settings-service { display: flex; align-items: center; gap: 24px; }
+.reminders-panel { position: absolute; right: 3%; top: 78px; width: 400px; max-height: 70vh; overflow: auto; z-index: 30; padding: 20px; background: white; border: 1px solid #d9e1ea; border-radius: 8px; box-shadow: 0 8px 24px #253a5120; }
+.reminders-panel h2 { font-size: 17px; margin: 0 0 15px; }
+.reminders-panel > button { display: block; width: 100%; padding: 14px 0; text-align: left; border: 0; border-top: 1px solid #e5eaf0; background: white; }
+.reminders-panel > button span { display: block; font-size: 12px; color: #657486; margin-top: 6px; }
+.attachment-entry { display: flex; align-items: center; gap: 16px; padding: 16px 0; border-bottom: 1px solid #d9e1ea; }
+.attachment-entry a { color: #245ac7; overflow-wrap: anywhere; }
+.attachment-entry .ui-button { margin-left: auto; }
+.attachment-entry img { width: 90px; height: 70px; object-fit: contain; background: #f4f6f8; }
+.attachment-entry small { display: block; color: #657486; }
+.notes-migration { margin: 14px 0; display: flex; align-items: center; gap: 16px; }

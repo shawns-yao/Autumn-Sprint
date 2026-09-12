@@ -1,0 +1,28 @@
+{
+  "name": "autumn-sprint",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "api": "node server.mjs",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "db:import": "node scripts/import-obsidian.mjs",
+    "test:targeted": "node Test/targeted/api.mjs"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "latest",
+    "better-sqlite3": "^13.0.3",
+    "lucide-react": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "react-markdown": "^10.1.0",
+    "vite": "latest"
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "typescript": "latest"
+  }
+}
