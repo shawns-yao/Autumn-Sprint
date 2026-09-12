@@ -1,5 +1,5 @@
 import { Check, X } from 'lucide-react'
-import { getStage, isClosed, lifecycle, normalizedStatus, stageFields, type Application } from '../model'
+import { getStage, isClosed, lifecycle, normalizedStatus, stageFields, type Application, type StageKey } from '../model'
 import { Badge } from './Shared'
 
 export function ApplicationState({ app }: { app: Application }) {
@@ -8,22 +8,26 @@ export function ApplicationState({ app }: { app: Application }) {
   return <Badge tone={tone === 'muted' ? 'gray' : tone} className="job-state">{label}</Badge>
 }
 
-export function ApplicationProgress({ app, compact = false }: { app: Application; compact?: boolean }) {
+type ProgressProps = { app: Application; compact?: boolean; selectedStage?: StageKey; onSelectStage?: (key: StageKey) => void }
+type ProgressStep = { key?: StageKey; label: string; date: string; state: string }
+
+export function ApplicationProgress({ app, compact = false, selectedStage, onSelectStage }: ProgressProps) {
   const status = normalizedStatus(app)
   const fields = stageFields.filter(([key, label]) => !compact || !['AI 面试', '三面'].includes(label) || getStage(app, key).status !== '未开始' || status === label)
-  const steps = [
+  const steps: ProgressStep[] = [
     { label: '已投递', date: app.applied, state: app.applied ? '已完成' : '未开始' },
-    ...fields.map(([key, label]) => ({ label, date: getStage(app, key).date, state: getStage(app, key).status })),
+    ...fields.map(([key, label]) => ({ key, label, date: getStage(app, key).date, state: getStage(app, key).status })),
     { label: 'Offer', date: '', state: status === 'Offer' ? '已完成' : '未开始' },
   ]
   return <ol className={`job-progress ${compact ? 'compact' : ''}`} style={{ gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))` }} aria-label="招聘流程进度">
     {steps.map(step => {
-      const failed = step.state === '未通过'
-      const complete = step.state === '已完成'
+      const failed = ['未通过', '已终止'].includes(step.state)
+      const complete = ['已完成', '已获 Offer'].includes(step.state)
       const current = step.label === status && !isClosed(app) && !complete
-      return <li key={step.label} className={`${complete ? 'complete' : ''} ${current ? 'current' : ''} ${failed ? 'failed' : ''}`} title={`${step.label}：${current ? '当前阶段' : step.state}${step.date ? ` · ${step.date}` : ''}`}>
-        <span className="job-step-dot">{failed ? <X size={10} /> : complete ? <Check size={11} /> : current ? <i /> : null}</span>
-        <span className="job-step-label">{step.label === '已投递' ? '投递' : step.label}</span><time>{step.date ? step.date.slice(5) : '—'}</time>
+      const content = <><span className="job-step-dot">{failed ? <X size={10} /> : complete ? <Check size={11} /> : current ? <i /> : null}</span><span className="job-step-label">{step.label === '已投递' ? '投递' : step.label}</span><time>{step.date ? step.date.slice(5) : '—'}</time></>
+      const key = step.key
+      return <li key={step.label} className={`${complete ? 'complete' : ''} ${current ? 'current' : ''} ${failed ? 'failed' : ''} ${key === selectedStage ? 'selected' : ''}`} title={`${step.label}：${current ? '当前阶段' : step.state}${step.date ? ` · ${step.date}` : ''}`}>
+        {key && onSelectStage ? <button type="button" className="job-step-button" aria-pressed={key === selectedStage} onClick={() => onSelectStage(key)}>{content}</button> : content}
       </li>
     })}
   </ol>

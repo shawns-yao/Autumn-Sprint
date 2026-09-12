@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { BarChart3, CalendarDays, ChevronRight, ClipboardList, Filter, Send, TrendingUp, Trophy, CircleX } from 'lucide-react'
-import { eventsFor, getStage, stageFields, isClosed, localDate, type Application, type View } from '../model'
+import { eventsFor, isClosed, localDate, recruitmentFunnel, type Application, type View } from '../model'
 import './overview.css'
 
 type Props = {
@@ -10,7 +10,7 @@ type Props = {
 }
 
 const stages = ['已投递', '测评', '笔试', 'AI 面试', '一面', '二面', '三面', 'HR 面']
-const colors = ['#5197f5', '#8bbfff', '#8fdcc1', '#7fb8dd', '#bc95f3', '#ffb471', '#efcf74', '#fa96a9']
+const colors = ['#3e78d8', '#61a5dd', '#3da58c', '#68a8a0', '#d99a3c', '#df7668', '#b87943', '#cb637f']
 
 export default function Overview({ apps, onOpen, onView }: Props) {
   const [company, setCompany] = useState('')
@@ -24,15 +24,7 @@ export default function Overview({ apps, onOpen, onView }: Props) {
   }))
   const maxCount = Math.max(1, ...distribution.map(item => item.count))
   const scoped = company ? apps.filter(app => app.company === company) : apps
-  const recorded = new Set(['已安排', '已完成', '未通过'])
-  const enteredInterview = (app: Application) => stageFields.slice(2).some(([key]) => recorded.has(getStage(app, key).status))
-  const screened = scoped.filter(app => [app.evaluation, app.written].some(stage => recorded.has(stage.status))).length
-  const funnel = [
-    { label: '投递', count: scoped.length, description: '个投递', color: '#569cf5' },
-    { label: '测评 / 笔试', count: screened, description: '个有考试记录', color: '#acd2fc' },
-    { label: '面试记录', count: scoped.filter(enteredInterview).length, description: '个有面试记录', color: '#b9e9d7' },
-    { label: 'Offer', count: scoped.filter(app => !isClosed(app) && app.status === 'Offer').length, description: '个 Offer', color: '#fbd5d8' },
-  ]
+  const funnel = recruitmentFunnel(scoped)
   const days = Array.from({ length: 30 }, (_, index) => {
     const date = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 29 + index)
     const key = localDate(date)
@@ -43,10 +35,10 @@ export default function Overview({ apps, onOpen, onView }: Props) {
   const upcoming = eventsFor(active).filter(event => !event.done
     && `${event.date}T${event.time || '23:59'}` >= `${today}T${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`).slice(0, 4)
   const metrics = [
-    { label: '进行中', value: active.length, note: '当前活跃流程', icon: Send, tone: 'blue' },
+    { label: '进行中', value: active.length, note: '当前活跃流程', icon: Send, tone: 'green' },
     { label: '总投递', value: apps.length, note: '秋招累计投递', icon: ClipboardList, tone: 'blue' },
-    { label: '已结束', value: apps.filter(isClosed).length, note: '不合适 / 已淘汰', icon: CircleX, tone: 'red' },
-    { label: 'Offer', value: offers.length, note: '当前已获得', icon: Trophy, tone: 'orange' },
+    { label: '已结束', value: apps.filter(isClosed).length, note: '不合适 / 已淘汰', icon: CircleX, tone: 'coral' },
+    { label: 'Offer', value: offers.length, note: '当前已获得', icon: Trophy, tone: 'amber' },
   ]
   return <section className="home-dashboard">
     <header className="home-heading">
@@ -71,11 +63,13 @@ export default function Overview({ apps, onOpen, onView }: Props) {
         </div>
       </section>
       <section className="home-section">
-        <header className="home-section-heading"><Filter /><div><h2>流程记录覆盖</h2><p>各类已记录岗位占比，不推测初筛或历史转化</p></div><select aria-label="流程统计公司" value={company} onChange={event => setCompany(event.target.value)}><option value="">全部岗位</option>{[...new Set(apps.map(app => app.company))].map(name => <option key={name} value={name}>{name}</option>)}</select></header>
-        <div className="home-funnel">
+        <header className="home-section-heading"><Filter /><div><h2>招聘漏斗</h2><p>已记录岗位 · 共 {scoped.length} 个</p></div><select aria-label="流程统计公司" value={company} onChange={event => setCompany(event.target.value)}><option value="">全部岗位</option>{[...new Set(apps.map(app => app.company))].map(name => <option key={name} value={name}>{name}</option>)}</select></header>
+        <div className="home-funnel" aria-label="四阶段招聘记录漏斗">
           {funnel.map((item, index) => <div className="home-funnel-row" key={item.label}>
-            <div className="home-funnel-shape" style={{ width: '100%', background: item.color, color: index === 0 ? '#fff' : '#173454' }}><span>{item.label}</span><strong>{item.count}</strong></div>
-            <div className="home-funnel-stat"><strong>{scoped.length ? Math.round(item.count / scoped.length * 100) : 0}%</strong><span>共 {item.count} {item.description}</span></div>
+            <div className="home-funnel-shape" style={{ width: `${100 - index * 16}%`, background: item.color, color: index === 0 ? '#fff' : '#173454' }}>
+              <span>{item.label}</span><strong>{item.count}</strong>
+            </div>
+            <div className="home-funnel-stat"><strong>{scoped.length ? `${Math.round(item.count / scoped.length * 100)}%` : '—'}</strong><span>占全部投递</span></div>
           </div>)}
         </div>
       </section>

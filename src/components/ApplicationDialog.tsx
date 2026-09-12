@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { CalendarDays, Check, ChevronRight, Clock3, ExternalLink, FileText, MapPin, Pencil, Plus, Save, X } from 'lucide-react'
-import { eventsFor, getStage, isClosed, nextEvent, normalizedStatus, priorityLabel, safeUrl, stageFields, statuses, type Application, type Stage, type StageKey, type Status } from '../model'
+import { CalendarDays, ExternalLink, FileText, MapPin, Save, X } from 'lucide-react'
+import { getStage, normalizedStatus, safeUrl, stageFields, type Application, type Stage, type StageKey, type Status } from '../model'
 import { Button, CompanyMark, IconButton } from './Shared'
 import { ApplicationProgress, ApplicationState } from './ApplicationProgress'
 import Attachments from './Attachments'
 import './applications.css'
 
 const tabs = [['basic', '基本信息'], ['stages', '招聘流程'], ['materials', '资料附件'], ['interviews', '面试记录'], ['notes', '备注 / 复盘']] as const
+const stageResultOptions = ['未开始', '已安排', '已完成', '未通过', '已终止', '已获 Offer', '跳过', '已取消']
 type Tab = typeof tabs[number][0]
 type Props = { app: Application; onClose: () => void; onSave: (app: Application) => Promise<Application> }
 
@@ -15,9 +16,7 @@ export default function ApplicationDialog({ app, onClose, onSave }: Props) {
   const [draft, setDraft] = useState(app)
   const [baseline, setBaseline] = useState(JSON.stringify(app))
   const [tab, setTab] = useState<Tab>('basic')
-  const [editing, setEditing] = useState(!app.company)
-  const [stageKey, setStageKey] = useState<StageKey>(() => stageFields.find(([, label]) => label === normalizedStatus(app))?.[0] || 'evaluation')
-  const [descending, setDescending] = useState(true)
+  const [stageKey, setStageKey] = useState<StageKey>(() => stageFields.find(([key]) => ['已终止', '未通过', '已获 Offer'].includes(getStage(app, key).status))?.[0] || stageFields.find(([, label]) => label === normalizedStatus(app))?.[0] || 'evaluation')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
@@ -25,18 +24,35 @@ export default function ApplicationDialog({ app, onClose, onSave }: Props) {
   const dirty = JSON.stringify(draft) !== baseline
   const patch = (value: Partial<Application>) => { setDraft(current => ({ ...current, ...value })); setMessage(''); setError('') }
   const patchStage = (key: StageKey, value: Partial<Stage>) => {
-    setDraft(current => ({ ...current, [key]: { ...getStage(current, key), ...value },
-      ...(value.status === '已安排' ? { status: stageFields.find(([field]) => field === key)![1], terminated: false } : {}),
-      ...(value.status === '未通过' ? { status: '拒绝' as Status, terminated: false } : {}),
-    }))
+    setDraft(current => {
+      const previous = getStage(current, key)
+      const next = { ...previous, ...value }
+      const updated = { ...current, [key]: next }
+      const label = stageFields.find(([field]) => field === key)![1]
+      if (value.status === '已安排') return { ...updated, status: label, terminated: false }
+      if (value.status === '未通过') return { ...updated, status: '拒绝' as Status, terminated: false }
+      if (value.status === '已终止') return { ...updated, status: '终止' as Status, terminated: true }
+      if (value.status === '已获 Offer') return { ...updated, status: 'Offer' as Status, terminated: false }
+      const clearedOutcome = value.status && ['未通过', '已终止', '已获 Offer'].includes(previous.status)
+      const removedCurrentStage = value.status && normalizedStatus(current) === label && ['未开始', '跳过', '已取消'].includes(value.status)
+      if (clearedOutcome || removedCurrentStage) {
+        const stages = stageFields.map(([field, stageLabel]) => ({ label: stageLabel, value: getStage(updated, field) }))
+        const outcome = stages.find(item => item.value.status === '已终止')
+          ? { status: '终止' as Status, terminated: true }
+          : stages.find(item => item.value.status === '未通过')
+            ? { status: '拒绝' as Status, terminated: false }
+            : stages.find(item => item.value.status === '已获 Offer')
+              ? { status: 'Offer' as Status, terminated: false }
+              : null
+        if (outcome) return { ...updated, ...outcome }
+        const active = stages.find(item => item.value.status === '已安排') || [...stages].reverse().find(item => item.value.status === '已完成')
+        return { ...updated, status: (active?.label || '已投递') as Status, terminated: false }
+      }
+      return updated
+    })
     setMessage(''); setError('')
   }
   const requestClose = () => { if (!saving) { if (dirty) setDiscard(true); else onClose() } }
-  const event = nextEvent(draft)
-  const history = eventsFor([draft]).filter(item => item.done).sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`) * (descending ? -1 : 1))
-  const currentKey = stageFields.find(([, label]) => label === normalizedStatus(draft))?.[0]
-  const spotlightKey = currentKey || (event ? stageFields.find(([, label]) => label === event.label)?.[0] : undefined)
-  const spotlight = spotlightKey ? getStage(draft, spotlightKey) : undefined
   const website = safeUrl(draft.website)
 
   useEffect(() => {
@@ -51,24 +67,29 @@ export default function ApplicationDialog({ app, onClose, onSave }: Props) {
   const submit = async (event: FormEvent) => {
     event.preventDefault()
     if (saving || !dirty) return
-    if (!draft.company.trim()) { setError('请填写公司名称。'); setTab('basic'); setEditing(true); return }
-    if (draft.website && !safeUrl(draft.website)) { setError('岗位链接需要使用有效的 http 或 https 地址。'); setTab('basic'); setEditing(true); return }
+    if (!draft.company.trim()) { setError('请填写公司名称。'); setTab('basic'); return }
+    if (draft.website && !safeUrl(draft.website)) { setError('岗位链接需要使用有效的 http 或 https 地址。'); setTab('basic'); return }
     setSaving(true); setError(''); setMessage('')
     try {
       const saved = await onSave(draft)
-      setDraft(saved); setBaseline(JSON.stringify(saved)); setMessage('已保存'); setEditing(false)
+      setDraft(saved); setBaseline(JSON.stringify(saved)); setMessage('已保存')
     } catch (error) {
       setError(error instanceof Error ? error.message : '保存失败，请重试。')
     } finally { setSaving(false) }
   }
   const editStage = (key: StageKey) => { setStageKey(key); setTab('stages') }
-  const recordedInterviews = stageFields.filter(([key], index) => index >= 2 && (getStage(draft, key).status !== '未开始' || getStage(draft, key).notes || getStage(draft, key).date))
+  const workflowStages = stageFields.filter(([key]) => getStage(draft, key).status !== '跳过')
+  const reviewStageKey = workflowStages.find(([key]) => key === stageKey)?.[0] || workflowStages[0]?.[0]
+  const reviewStagePicker = reviewStageKey ? <label className="job-stage-picker">招聘阶段<select aria-label="招聘阶段" value={reviewStageKey} onChange={event => setStageKey(event.target.value as StageKey)}>{workflowStages.map(([key, label]) => <option value={key} key={key}>{label}</option>)}</select></label> : null
+  const interviewStages = workflowStages.filter(([, label]) => ['AI 面试', '一面', '二面', '三面', 'HR 面'].includes(label))
+  const interviewStageKey = interviewStages.find(([key]) => key === stageKey)?.[0] || interviewStages[0]?.[0]
+  const interviewStagePicker = interviewStageKey ? <label className="job-stage-picker">面试阶段<select aria-label="面试阶段" value={interviewStageKey} onChange={event => setStageKey(event.target.value as StageKey)}>{interviewStages.map(([key, label]) => <option value={key} key={key}>{label}</option>)}</select></label> : null
 
   return <dialog ref={dialog} className="job-dialog" aria-labelledby="job-dialog-title" onCancel={event => { event.preventDefault(); requestClose() }} onClick={event => { if (event.target === event.currentTarget) requestClose() }}>
     <form className="job-dialog-shell" onSubmit={submit} aria-busy={saving}>
       <header className="job-dialog-header">
         <CompanyMark name={draft.company || '新岗位'} />
-        <div className="job-dialog-identity"><div className="job-dialog-title-line"><h2 id="job-dialog-title">{draft.company || '新建岗位'}</h2><span className="job-source-tag">{draft.source || '来源待补充'}</span><span className="job-priority-tag">{priorityLabel(draft.priority)}</span><ApplicationState app={draft} /></div>
+        <div className="job-dialog-identity"><div className="job-dialog-title-line"><h2 id="job-dialog-title">{draft.company || '新建岗位'}</h2><ApplicationState app={draft} /></div>
           <h3>{draft.title || '岗位名称待填写'}</h3><div className="job-dialog-meta"><span><MapPin size={14} />{draft.city || '城市待补充'}</span><span><FileText size={14} />{draft.source || '投递来源待补充'}</span><span><CalendarDays size={14} />{draft.applied || '日期待补充'}</span>{website && <a href={website} target="_blank" rel="noreferrer">{website}<ExternalLink size={13} /></a>}</div>
         </div>
         <IconButton icon={X} label="关闭岗位详情" variant="ghost" className="job-dialog-close" onClick={requestClose} disabled={saving} />
@@ -81,38 +102,25 @@ export default function ApplicationDialog({ app, onClose, onSave }: Props) {
         }
       }}>{label}</button>)}</div>
       <div className="job-dialog-body" id="job-tab-panel" role="tabpanel" aria-labelledby={`job-tab-${tab}`} inert={saving}>
-        {tab === 'basic' && <div className="job-dialog-columns">
+        {tab === 'basic' && <div className="job-dialog-single">
           <section className="job-basic-section">
-            <div className="job-section-title"><h3>基本信息</h3><Button size="small" icon={Pencil} onClick={() => setEditing(!editing)}>{editing ? '结束编辑' : '编辑'}</Button></div>
+            <div className="job-section-title"><h3>基本信息</h3></div>
             <div className="job-form-grid">
-              <label>公司名称<input value={draft.company} readOnly={!editing} onChange={event => patch({ company: event.target.value })} /></label>
-              <label>岗位名称<input value={draft.title} readOnly={!editing} onChange={event => patch({ title: event.target.value })} /></label>
-              <label>简历版本<input value={draft.resume} readOnly={!editing} onChange={event => patch({ resume: event.target.value })} placeholder="未关联简历" /></label>
-              <label>工作城市<input value={draft.city} readOnly={!editing} onChange={event => patch({ city: event.target.value })} /></label>
-              <label>投递渠道<select value={draft.source} disabled={!editing} onChange={event => patch({ source: event.target.value })}>{[...new Set([draft.source, '官网', '校招', '内推', '直招', '其他'])].map(value => <option key={value} value={value}>{value || '请选择'}</option>)}</select></label>
-              <label>投递时间<input type="date" value={draft.applied} readOnly={!editing} onChange={event => patch({ applied: event.target.value })} /></label>
-              <label>当前阶段<select value={draft.status} disabled={!editing} onChange={event => patch({ status: event.target.value as Status, terminated: event.target.value === '终止' })}>{statuses.map(value => <option key={value}>{value}</option>)}</select></label>
-              <label>优先级<select value={draft.priority} disabled={!editing} onChange={event => patch({ priority: event.target.value })}>{['高', '中', '低'].map(value => <option value={value} key={value}>{priorityLabel(value)}</option>)}</select></label>
-              <div className="job-field-wide"><span className="job-field-label">标签</span><div className="job-tags"><span>{draft.source || '来源待补充'}</span><span className="priority-high">{priorityLabel(draft.priority)}</span></div></div>
-              <label className="job-field-wide">岗位链接<div className="job-link-field"><input value={draft.website} readOnly={!editing} onChange={event => patch({ website: event.target.value })} />{website && <a href={website} target="_blank" rel="noreferrer" title="打开岗位链接" aria-label="打开岗位链接"><ExternalLink size={15} /></a>}</div></label>
+              <label>公司名称<input value={draft.company} onChange={event => patch({ company: event.target.value })} /></label>
+              <label>岗位名称<input value={draft.title} onChange={event => patch({ title: event.target.value })} /></label>
+              <label>工作城市<input value={draft.city} onChange={event => patch({ city: event.target.value })} /></label>
+              <label>投递渠道<input value={draft.source} onChange={event => patch({ source: event.target.value })} /></label>
+              <label>投递时间<input type="date" value={draft.applied} onChange={event => patch({ applied: event.target.value })} /></label>
+              <label>岗位状态<input value={normalizedStatus(draft)} readOnly aria-readonly="true" /></label>
+              <label className="job-field-wide">岗位链接<div className="job-link-field"><input value={draft.website} onChange={event => patch({ website: event.target.value })} />{website && <a href={website} target="_blank" rel="noreferrer" title="打开岗位链接" aria-label="打开岗位链接"><ExternalLink size={15} /></a>}</div></label>
             </div>
-            <h3 className="job-jd-heading">岗位 JD</h3><textarea className="job-jd" aria-label="岗位 JD" value={draft.jd} readOnly={!editing} onChange={event => patch({ jd: event.target.value })} placeholder="暂无岗位描述" />
+            <h3 className="job-jd-heading">岗位 JD</h3><textarea className="job-jd" aria-label="岗位 JD" value={draft.jd} onChange={event => patch({ jd: event.target.value })} placeholder="暂无岗位描述" />
           </section>
-          <div className="job-process-column">
-            <section className="job-process-section"><div className="job-section-title"><h3>流程进度</h3><button type="button" className="job-outline" onClick={() => editStage(currentKey || 'firstInterview')}><Plus size={14} />添加流程</button></div><ApplicationProgress app={draft} />
-              {spotlight && spotlightKey ? <div className="job-current-stage"><div className="job-section-title"><h4><i />{stageFields.find(([key]) => key === spotlightKey)?.[1]}</h4><span className="job-source-tag">{spotlight.status}</span></div><div className="job-stage-meta"><span><CalendarDays size={13} />{spotlight.date || '日期待安排'}</span><span><Clock3 size={13} />{spotlight.time || '时间待定'}</span><span><MapPin size={13} />{spotlight.location || '地点待定'}</span></div><div className="job-note-label"><span>要求 / 注意事项</span><button type="button" onClick={() => editStage(spotlightKey)}>编辑</button></div><p>{spotlight.requirements || '暂无注意事项'}</p></div> : <p className="job-muted-empty">{isClosed(draft) ? '该岗位流程已结束' : '暂无已安排的流程'}</p>}
-            </section>
-            <section className="job-history-section"><div className="job-section-title"><h3>历史流程</h3><label className="job-sort-history"><input type="checkbox" checked={descending} onChange={event => setDescending(event.target.checked)} />按时间倒序</label></div><div className="job-history-list">{history.map(item => <button type="button" key={item.id} onClick={() => {
-              const key = stageFields.find(([, label]) => label === item.label)?.[0]
-              if (key) editStage(key); else { setEditing(true); setTab('basic') }
-            }}><span className={`job-history-icon ${item.stage.status === '未通过' ? 'failed' : ''}`}>{item.stage.status === '未通过' ? <X size={11} /> : <Check size={11} />}</span><strong>{item.label}</strong><span>{item.date} {item.time}</span><ChevronRight size={15} /></button>)}{!history.length && <p className="job-muted-empty">暂无历史流程</p>}</div></section>
-            <section className="job-quick-section"><h3>快速操作</h3><div><button type="button" className="job-outline" onClick={() => editStage('firstInterview')}><CalendarDays size={14} />添加面试</button><button type="button" className="job-outline" onClick={() => setTab('materials')}><FileText size={14} />查看资料</button><button type="button" className="job-end-button" disabled={isClosed(draft)} onClick={() => patch({ terminated: true, status: '终止' })}>结束该岗位</button></div></section>
-          </div>
         </div>}
-        {tab === 'stages' && <section className="job-stages-tab"><div className="job-section-title"><h3>招聘流程</h3><label className="job-stage-picker">编辑阶段<select aria-label="编辑招聘阶段" value={stageKey} onChange={event => setStageKey(event.target.value as StageKey)}>{stageFields.map(([key, label]) => <option value={key} key={key}>{label}</option>)}</select></label></div><ApplicationProgress app={draft} /><StageForm title={stageFields.find(([key]) => key === stageKey)![1]} value={getStage(draft, stageKey)} onChange={value => patchStage(stageKey, value)} /><button type="button" className="job-outline" disabled={isClosed(draft)} onClick={() => patch({ status: stageFields.find(([key]) => key === stageKey)![1] })}>设为当前阶段</button></section>}
+        {tab === 'stages' && <section className="job-stages-tab"><div className="job-section-title"><h3>招聘流程</h3></div><ApplicationProgress app={draft} selectedStage={stageKey} onSelectStage={setStageKey} /><StageForm title={stageFields.find(([key]) => key === stageKey)![1]} value={getStage(draft, stageKey)} onChange={value => patchStage(stageKey, value)} /></section>}
         {tab === 'materials' && <Attachments app={draft} />}
-        {tab === 'interviews' && <section className="job-records-tab"><div className="job-section-title"><h3>面试记录</h3><button type="button" className="job-outline" onClick={() => editStage('firstInterview')}><Plus size={14} />添加面试</button></div>{recordedInterviews.length ? recordedInterviews.map(([key, label]) => { const value = getStage(draft, key); return <article className="job-interview-record" key={key}><div className="job-section-title"><h4>{label}</h4><span>{value.status}</span><button type="button" className="job-outline" onClick={() => editStage(key)}><Pencil size={13} />编辑</button></div><p className="job-stage-meta">{[value.date, value.time, value.location].filter(Boolean).join(' · ') || '时间地点待补充'}</p><p className="job-record-notes">{value.notes || '暂无面试记录'}</p></article> }) : <p className="job-muted-empty">暂无面试记录</p>}</section>}
-        {tab === 'notes' && <section className="job-notes-tab"><h3>备注 / 复盘</h3>{stageFields.map(([key, label]) => <label key={key}>{label}<textarea value={getStage(draft, key).notes} onChange={event => patchStage(key, { notes: event.target.value })} placeholder="记录结果、问题和后续准备" /></label>)}</section>}
+        {tab === 'interviews' && <section className="job-records-tab"><div className="job-section-title"><h3>面试记录</h3>{interviewStagePicker}</div>{interviewStageKey ? <StageForm title={stageFields.find(([key]) => key === interviewStageKey)![1]} value={getStage(draft, interviewStageKey)} onChange={value => patchStage(interviewStageKey, value)} editableStatus={false} /> : <p className="job-muted-empty">招聘流程中暂无面试阶段</p>}</section>}
+        {tab === 'notes' && <section className="job-notes-tab job-review-tab"><div className="job-section-title"><h3>备注 / 复盘</h3>{reviewStagePicker}</div>{reviewStageKey ? <StageRecordField title={stageFields.find(([key]) => key === reviewStageKey)![1]} value={getStage(draft, reviewStageKey)} onChange={value => patchStage(reviewStageKey, value)} review /> : <p className="job-muted-empty">招聘流程中暂无可复盘阶段</p>}</section>}
       </div>
       <footer className="job-dialog-footer">
         {discard ? <><span role="alert">存在未保存的修改，确定放弃？</span><Button onClick={() => setDiscard(false)}>继续编辑</Button><Button variant="danger" onClick={onClose}>放弃更改</Button></> : <><span role={error ? 'alert' : 'status'} className={error ? 'job-save-error' : 'job-save-status'}>{error || message || (dirty ? '有未保存的修改' : '')}</span><Button disabled={saving} onClick={requestClose}>关闭</Button><Button type="submit" variant="primary" icon={Save} disabled={saving || !dirty}>{saving ? '保存中…' : '保存更改'}</Button></>}
@@ -121,13 +129,17 @@ export default function ApplicationDialog({ app, onClose, onSave }: Props) {
   </dialog>
 }
 
-function StageForm({ title, value, onChange }: { title: string; value: Stage; onChange: (value: Partial<Stage>) => void }) {
-  return <div className="job-stage-form"><div className="job-section-title"><h4>{title}</h4><select aria-label={`${title}状态`} value={value.status} onChange={event => onChange({ status: event.target.value })}>{['未开始', '已安排', '已完成', '未通过', '跳过', '已取消'].map(status => <option key={status}>{status}</option>)}</select></div><div className="job-form-grid">
+function StageForm({ title, value, onChange, editableStatus = true }: { title: string; value: Stage; onChange: (value: Partial<Stage>) => void; editableStatus?: boolean }) {
+  return <div className="job-stage-form"><div className="job-section-title"><h4>{title}</h4>{editableStatus && <select aria-label={`${title}状态`} value={value.status} onChange={event => onChange({ status: event.target.value })}>{stageResultOptions.map(status => <option key={status}>{status}</option>)}</select>}</div><div className="job-form-grid">
     <label>日期<input type="date" value={value.date} onChange={event => onChange({ date: event.target.value })} /></label>
     <label>时间<input type="time" value={value.time} onChange={event => onChange({ time: event.target.value })} /></label>
     <label>形式 / 地点<input value={value.location} onChange={event => onChange({ location: event.target.value })} /></label>
     <label>地址 / 链接<input value={value.link} onChange={event => onChange({ link: event.target.value })} /></label>
-    <label className="job-field-wide">要求 / 注意事项<textarea value={value.requirements} onChange={event => onChange({ requirements: event.target.value })} /></label>
-    <label className="job-field-wide">结果 / 备注<textarea value={value.notes} onChange={event => onChange({ notes: event.target.value })} /></label>
+    <StageRecordField title="阶段记录" value={value} onChange={onChange} />
   </div></div>
+}
+
+function StageRecordField({ title, value, onChange, review = false }: { title: string; value: Stage; onChange: (value: Partial<Stage>) => void; review?: boolean }) {
+  const content = [value.requirements, value.notes].filter(Boolean).join(value.requirements && value.notes ? '\n\n' : '')
+  return <label className={`${review ? 'job-review-editor' : 'job-field-wide job-stage-record'}`}>{title}<textarea value={content} onChange={event => onChange({ requirements: '', notes: event.target.value })} placeholder="记录安排要求、阶段结果、问题和后续准备" /></label>
 }

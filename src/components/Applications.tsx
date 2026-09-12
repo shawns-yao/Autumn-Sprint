@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { CalendarDays, LayoutGrid, List, MapPin } from 'lucide-react'
-import { lifecycle, nextEvent, normalizedStatus, priorityLabel, relativeDate, statuses, type Application } from '../model'
+import { lifecycle, nextEvent, normalizedStatus, relativeDate, statuses, type Application } from '../model'
 import { Button, CompanyMark, Empty, Heading, IconButton, Pagination, SearchField } from './Shared'
 import { ApplicationProgress, ApplicationState } from './ApplicationProgress'
 import './applications.css'
@@ -20,42 +20,40 @@ export default function Applications({ apps, query, setQuery, selectedId, onOpen
   const [size, setSize] = useState(10)
   const [mode, setMode] = useState<'list' | 'grid'>('list')
   const filtered = useMemo(() => apps.filter(app =>
-    `${app.company} ${app.title} ${app.source} ${app.priority} ${priorityLabel(app.priority)} ${app.status}`.toLowerCase().includes(query.trim().toLowerCase())
+    `${app.company} ${app.title} ${app.source} ${app.status}`.toLowerCase().includes(query.trim().toLowerCase())
     && (!status || lifecycle(app) === status)
     && (!stage || normalizedStatus(app) === stage)
     && (!city || citiesFor(app).includes(city)),
   ).sort((a, b) => {
-    if (sort === 'priority') return ['高', '中', '低'].indexOf(a.priority) - ['高', '中', '低'].indexOf(b.priority)
     if (!a.applied || !b.applied) return Number(!a.applied) - Number(!b.applied)
     return sort === 'oldest' ? a.applied.localeCompare(b.applied) : b.applied.localeCompare(a.applied)
   }), [apps, query, status, stage, city, sort])
   const safePage = Math.min(page, Math.max(1, Math.ceil(filtered.length / size)))
   const visible = filtered.slice((safePage - 1) * size, safePage * size)
   const change = (setter: (value: string) => void, value: string) => { setter(value); setPage(1) }
-  const tags = (app: Application) => <div className="job-tags"><span>{app.source || '来源待补充'}</span><span className={`priority-${app.priority === '高' ? 'high' : app.priority === '低' ? 'low' : 'medium'}`}>{priorityLabel(app.priority)}</span></div>
   const identity = (app: Application) => <div className="job-identity"><CompanyMark name={app.company} /><div><strong>{app.company}</strong><span title={app.title}>{app.title || '岗位名称待补充'}</span></div></div>
 
   return <section className="jobs-page">
     <Heading className="jobs-heading" title="岗位" meta="记录每一个机会，走好秋招的每一步。" />
     <div className="jobs-toolbar">
-      <SearchField className="jobs-search" label="搜索岗位" placeholder="搜索公司、岗位、标签…" value={query} onChange={event => change(setQuery, event.target.value)} />
+      <SearchField className="jobs-search" label="搜索岗位" placeholder="搜索公司、岗位、来源…" value={query} onChange={event => change(setQuery, event.target.value)} />
       <select aria-label="岗位状态筛选" value={status} onChange={event => change(setStatus, event.target.value)}><option value="">全部状态</option>{['进行中', '已终止', '已结束', 'Offer'].map(value => <option key={value}>{value}</option>)}</select>
       <select aria-label="招聘阶段筛选" value={stage} onChange={event => change(setStage, event.target.value)}><option value="">全部阶段</option>{statuses.filter(value => !['技术面', '拒绝', '终止'].includes(value)).map(value => <option key={value}>{value}</option>)}</select>
       <select aria-label="城市筛选" value={city} onChange={event => change(setCity, event.target.value)}><option value="">全部城市</option>{[...new Set(apps.flatMap(citiesFor))].sort().map(value => <option key={value}>{value}</option>)}</select>
-      <select aria-label="岗位排序" value={sort} onChange={event => change(setSort, event.target.value)}><option value="newest">投递时间：最新</option><option value="oldest">投递时间：最早</option><option value="priority">优先级：最高</option></select>
+      <select aria-label="岗位排序" value={sort} onChange={event => change(setSort, event.target.value)}><option value="newest">投递时间：最新</option><option value="oldest">投递时间：最早</option></select>
       <span className="jobs-count">共 {filtered.length} 个岗位</span>
       <div className="jobs-view-switch" role="group" aria-label="岗位展示方式">{([['list', List, '列表视图'], ['grid', LayoutGrid, '网格视图']] as const).map(([value, Icon, label]) => <IconButton key={value} label={label} icon={Icon} variant={mode === value ? 'selected' : 'secondary'} aria-pressed={mode === value} onClick={() => setMode(value)} />)}</div>
     </div>
     {mode === 'list' ? <div className="jobs-table-scroll"><table className="jobs-table">
-      <colgroup><col className="job-col-company" /><col className="job-col-city" /><col className="job-col-tags" /><col className="job-col-progress" /><col className="job-col-date" /><col className="job-col-status" /><col className="job-col-actions" /></colgroup>
-      <thead><tr>{['公司 / 岗位', '地点', '标签', '流程进度', '关键时间', '状态', '操作'].map(label => <th key={label} scope="col">{label}</th>)}</tr></thead>
+      <colgroup><col className="job-col-company" /><col className="job-col-city" /><col className="job-col-status" /><col className="job-col-progress" /><col className="job-col-date" /><col className="job-col-next" /><col className="job-col-actions" /></colgroup>
+      <thead><tr>{['公司 / 岗位', '地点', '状态', '流程进度', '时间', '下一步安排', '操作'].map(label => <th key={label} scope="col">{label}</th>)}</tr></thead>
       <tbody>{visible.map(app => <tr key={app.id} className={app.id === selectedId ? 'selected' : ''}>
-        <td>{identity(app)}</td><td><span className="job-city"><MapPin size={14} />{app.city || '待补充'}</span></td><td>{tags(app)}</td>
-        <td><ApplicationProgress app={app} compact /></td><td><KeyDate app={app} /></td><td><ApplicationState app={app} /></td>
+        <td>{identity(app)}</td><td><span className="job-city"><MapPin size={14} />{app.city || '待补充'}</span></td>
+        <td><ApplicationState app={app} /></td><td><ApplicationProgress app={app} compact /></td><td><TimeLabel app={app} /></td><td><NextStep app={app} /></td>
         <td><Button size="small" className="job-detail-button" aria-label={`查看${app.company}详情`} onClick={() => onOpen(app)}>查看详情</Button></td>
       </tr>)}</tbody>
     </table>{!visible.length && <Empty>没有符合条件的岗位</Empty>}</div> : <div className="jobs-grid">
-      {visible.map(app => <article className="job-grid-item" key={app.id}>{identity(app)}<div className="job-grid-meta"><span className="job-city"><MapPin size={14} />{app.city || '待补充'}</span><ApplicationState app={app} /></div>{tags(app)}<ApplicationProgress app={app} compact /><KeyDate app={app} /><Button size="small" className="job-detail-button" aria-label={`查看${app.company}详情`} onClick={() => onOpen(app)}>查看详情</Button></article>)}
+      {visible.map(app => <article className="job-grid-item" key={app.id}>{identity(app)}<div className="job-grid-meta"><span className="job-city"><MapPin size={14} />{app.city || '待补充'}</span><ApplicationState app={app} /></div><ApplicationProgress app={app} compact /><KeyDate app={app} /><Button size="small" className="job-detail-button" aria-label={`查看${app.company}详情`} onClick={() => onOpen(app)}>查看详情</Button></article>)}
       {!visible.length && <Empty>没有符合条件的岗位</Empty>}
     </div>}
     <Pagination page={safePage} size={size} total={filtered.length} onPage={setPage} onSize={value => { setSize(value); setPage(1) }} />
@@ -67,4 +65,21 @@ function KeyDate({ app }: { app: Application }) {
   const state = lifecycle(app)
   const ended = ['已终止', '已结束', 'Offer'].includes(state)
   return <div className="job-key-date"><div><CalendarDays size={14} /><span>{ended ? '无后续安排' : event ? `${event.date} ${event.time}` : '暂无安排'}</span></div><small>{ended ? state === 'Offer' ? '已获得 Offer' : '已结束流程' : event ? `${event.label}${event.stage.location ? ` · ${event.stage.location}` : ''}` : '等待通知'}</small>{event && !ended && <em>{relativeDate(event.date)}</em>}</div>
+}
+
+function TimeLabel({ app }: { app: Application }) {
+  const event = nextEvent(app)
+  const state = lifecycle(app)
+  const ended = ['已终止', '已结束', 'Offer'].includes(state)
+  const date = ended ? '' : event?.date || ''
+  return <div className="job-time-label"><span>{date || '—'}</span><small>{date ? relativeDate(date) : ended ? '流程已结束' : '时间待定'}</small></div>
+}
+
+function NextStep({ app }: { app: Application }) {
+  const event = nextEvent(app)
+  const state = lifecycle(app)
+  const ended = ['已终止', '已结束', 'Offer'].includes(state)
+  if (ended) return <div className="job-next-step"><strong>{state === 'Offer' ? '已获得 Offer' : '流程已结束'}</strong><small>{state}</small></div>
+  if (!event) return <div className="job-next-step"><strong>暂无安排</strong><small>等待通知</small></div>
+  return <div className="job-next-step"><strong>{event.label}</strong><small>{[event.date, event.time, event.stage.location].filter(Boolean).join(' · ') || '待补充安排'}</small></div>
 }

@@ -1,6 +1,6 @@
 export const stageMap = { evaluation: '测评', written: '笔试', aiInterview: 'AI 面试', firstInterview: '一面', secondInterview: '二面', thirdInterview: '三面', hrInterview: 'HR 面' }
 export const statuses = ['已投递', ...Object.values(stageMap), 'Offer', '拒绝', '终止']
-export const stageStatuses = ['未开始', '已安排', '已完成', '未通过', '跳过', '已取消']
+export const stageStatuses = ['未开始', '已安排', '已完成', '未通过', '已终止', '已获 Offer', '跳过', '已取消']
 export class HttpError extends Error { constructor(status, message) { super(message); this.status = status } }
 export function requireValue(condition, message, status = 400) { if (!condition) throw new HttpError(status, message) }
 export function object(value) { requireValue(value && typeof value === 'object' && !Array.isArray(value), '请求内容必须为对象'); return value }
@@ -43,8 +43,6 @@ export function application(input) {
   }
   requireValue(statuses.includes(result.status), '无效的岗位状态')
   requireValue(['高', '中', '低'].includes(result.priority), '无效的优先级')
-  requireValue(typeof input.terminated === 'boolean' && input.terminated === (result.status === '终止'), '终止标记与岗位状态不一致')
-  result.terminated = input.terminated
   for (const [key, label] of Object.entries(stageMap)) {
     const stage = object(input[key] || {})
     const status = stage.status || '未开始'
@@ -57,6 +55,18 @@ export function application(input) {
     requireValue(!value.date || !result.applied || value.date >= result.applied, `${label}日期不能早于投递日期`)
     result[key] = value
   }
+  const stageTerminated = Object.values(result).some(value => value && typeof value === 'object' && value.status === '已终止')
+  const stageOffered = Object.values(result).some(value => value && typeof value === 'object' && value.status === '已获 Offer')
+  requireValue(!(stageTerminated && stageOffered), '岗位不能同时标记为终止和 Offer')
+  const inferredTermination = stageTerminated && result.status !== '终止'
+  if (stageTerminated) {
+    requireValue(result.status === '已投递' || stageMap[result.status] || ['Offer', '拒绝', '终止'].includes(result.status), '阶段终止与岗位状态不一致')
+    result.status = '终止'
+  } else if (stageOffered) {
+    result.status = 'Offer'
+  }
+  requireValue(typeof input.terminated === 'boolean' && (inferredTermination || input.terminated === (result.status === '终止')), '终止标记与岗位状态不一致')
+  result.terminated = inferredTermination || input.terminated
   const closed = ['Offer', '拒绝', '终止'].includes(result.status)
   const stages = Object.entries(stageMap).map(([key, label]) => ({ key, label, ...result[key] }))
   requireValue(result.status !== 'Offer' || !stages.some(item => item.status === '未通过'), '存在未通过阶段，不能同时标记为 Offer')

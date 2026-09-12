@@ -29,12 +29,24 @@ export function eventsFor(apps: Application[]): Event[] {
     ...(app.applied ? [{ id: `${app.id}-applied`, app, label: '投递', date: app.applied, time: '', stage: emptyStage(), done: true }] : []),
     ...stageFields.filter(([key]) => getStage(app, key).date && getStage(app, key).status !== '未开始').map(([key, label]) => ({
       id: `${app.id}-${key}`, app, label, date: getStage(app, key).date, time: getStage(app, key).time,
-      stage: getStage(app, key), done: ['已完成', '未通过', '跳过', '已取消'].includes(getStage(app, key).status),
+      stage: getStage(app, key), done: ['已完成', '未通过', '已终止', '已获 Offer', '跳过', '已取消'].includes(getStage(app, key).status),
     })),
   ]).sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`))
 }
 export function nextEvent(app: Application) {
   return eventsFor([app]).find(event => !event.done && !isClosed(app) && app.status !== 'Offer')
+}
+const recordedStatuses = new Set(['已安排', '已完成', '未通过', '已终止'])
+export function recruitmentFunnel(apps: Application[]) {
+  const enteredExam = apps.filter(app => [app.evaluation, app.written].some(stage => recordedStatuses.has(stage.status))).length
+  const enteredInterview = apps.filter(app => stageFields.slice(2).some(([key]) => recordedStatuses.has(getStage(app, key).status))).length
+  const offers = apps.filter(app => app.status === 'Offer').length
+  return [
+    { label: '投递', count: apps.length, description: '个投递', color: '#4c92ee' },
+    { label: '测评 / 笔试', count: enteredExam, description: '个有考试记录', color: '#9bc5f4' },
+    { label: '面试记录', count: enteredInterview, description: '个有面试记录', color: '#a9ddcc' },
+    { label: 'Offer', count: offers, description: '个 Offer', color: '#f4c8cd' },
+  ]
 }
 export function relativeDate(date: string) {
   if (!date) return '时间待定'
