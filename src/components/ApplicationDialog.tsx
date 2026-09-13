@@ -300,12 +300,17 @@ function JobSidebar({ jobs, currentId, onSelect, onCreate, onMove, onDelete, can
         onDragEnd={finishDrag}>
         <button type="button" className="job-workflow-job" aria-current={job.id === currentId ? 'page' : undefined} onClick={() => onSelect(job)} disabled={disabled}
           onKeyDown={event => { if (!['ArrowUp', 'ArrowDown'].includes(event.key)) return; const target = jobs[index + (event.key === 'ArrowUp' ? -1 : 1)]; if (!target) return; event.preventDefault(); onMove(job.id, target.id, event.key === 'ArrowUp') }}>
-          <span className="job-workflow-job-top"><strong>{job.title || '岗位名称待填写'}</strong></span>
-          <span className="job-workflow-job-stage"><span>当前阶段</span><strong>{jobStageLabel(job)}</strong></span>
-          <small>{[job.city, job.applied].filter(Boolean).join(' · ') || '岗位信息待补充'}</small>
+          <span className="job-workflow-job-top"><ApplicationState app={job} /></span>
+          <strong className="job-workflow-job-title">{job.title || '岗位名称待填写'}</strong>
+          <span className="job-workflow-job-stage">
+            <FileText size={15} aria-hidden="true" />
+            <strong>{jobStageLabel(job)}</strong>
+            <span className="job-workflow-job-separator" aria-hidden="true">|</span>
+            <CalendarDays size={15} aria-hidden="true" />
+            <time dateTime={jobStageDate(job) || undefined}>{jobStageDate(job) || '—'}</time>
+          </span>
         </button>
         <div className="job-workflow-job-side">
-          <ApplicationState app={job} />
           <IconButton icon={X} label={`删除${job.title || '当前岗位'}`} variant="ghost" size="small" className="job-workflow-job-delete" disabled={disabled || !canDelete} onClick={event => { event.stopPropagation(); onDelete(job) }} />
         </div>
       </div>)}
@@ -313,10 +318,18 @@ function JobSidebar({ jobs, currentId, onSelect, onCreate, onMove, onDelete, can
   </aside>
 }
 
+function currentJobStage(job: Application) {
+  return currentWorkflowStage(job) || workflowFor(job).find(stage => stage.id === job.currentStageId || stage.label === normalizedStatus(job))
+}
+
 function jobStageLabel(job: Application) {
-  const stage = currentWorkflowStage(job)
+  const stage = currentJobStage(job)
   if (stage) return stageProgressLabel(stage)
   if (job.status === 'Offer') return '已获得 Offer'
   if (['拒绝', '终止'].includes(job.status) || job.terminated) return '流程已结束'
   return normalizedStatus(job) || '初筛'
+}
+
+function jobStageDate(job: Application) {
+  return currentJobStage(job)?.date || ''
 }

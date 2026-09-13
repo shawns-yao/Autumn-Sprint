@@ -236,6 +236,7 @@ button svg, a svg { flex-shrink: 0; }
 .empty-state p { font-size: var(--ui-font-label); }
 .war-room select { border: 1px solid var(--ui-border); background-color: #fff; }
 .ui-button:focus-visible, .war-room input:focus-visible, .war-room select:focus-visible, .war-room textarea:focus-visible, .war-room button:focus-visible, .war-room a:focus-visible { outline: 2px solid #397f68; outline-offset: 3px; }
+.war-room .ui-search input:focus-visible { outline: 0; }
 .war-room input[type="checkbox"] { accent-color: var(--ui-blue); }
 * { scrollbar-color: #b9c8c2 transparent; scrollbar-width: thin; }
 *::-webkit-scrollbar { width: 10px; height: 10px; }
