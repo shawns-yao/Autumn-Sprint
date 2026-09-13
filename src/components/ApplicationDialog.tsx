@@ -74,7 +74,8 @@ export default function ApplicationDialog({ app, apps, initialTab = 'basic', onS
   }
   const createJob = () => {
     const company = draft.company.trim() || app.company.trim()
-    if (dirty) { setDiscardAction({ kind: 'create', company, initialTab: 'stages' }); setDiscard(true) } else onCreateJob(company, 'stages')
+    const initialTab = company ? 'stages' : 'basic'
+    if (dirty) { setDiscardAction({ kind: 'create', company, initialTab }); setDiscard(true) } else onCreateJob(company, initialTab)
   }
   const deleteJob = async (target = draft) => {
     if (!target.updatedAt) { onClose(); return }
@@ -121,7 +122,7 @@ export default function ApplicationDialog({ app, apps, initialTab = 'basic', onS
     })
     setMessage(''); setError('')
   }
-  const sidebar = <JobSidebar jobs={orderedCompanyJobs} currentId={draft.id} company={draft.company} onCompanyChange={company => patch({ company })} onSelect={selectJob} onCreate={createJob} onMove={moveJob} onDelete={requestDelete} canDelete={Boolean(draft.updatedAt)} disabled={saving} />
+  const sidebar = <JobSidebar jobs={orderedCompanyJobs} currentId={draft.id} onSelect={selectJob} onCreate={createJob} onMove={moveJob} onDelete={requestDelete} canDelete={Boolean(draft.updatedAt)} disabled={saving} />
 
   useEffect(() => {
     const element = dialog.current
@@ -284,13 +285,12 @@ function StageRecordField({ title, value, onChange }: { title: string; value: St
   return <div className="job-field-wide job-stage-record"><div className="stage-record-label">{title}</div><ReviewEditor value={value} onChange={onChange} label={title} compact /></div>
 }
 
-function JobSidebar({ jobs, currentId, company, onCompanyChange, onSelect, onCreate, onMove, onDelete, canDelete, disabled }: { jobs: Application[]; currentId: string | number; company: string; onCompanyChange: (value: string) => void; onSelect: (app: Application) => void; onCreate: () => void; onMove: (sourceId: string | number, targetId: string | number, before: boolean) => void; onDelete: (job: Application) => void; canDelete: boolean; disabled: boolean }) {
+function JobSidebar({ jobs, currentId, onSelect, onCreate, onMove, onDelete, canDelete, disabled }: { jobs: Application[]; currentId: string | number; onSelect: (app: Application) => void; onCreate: () => void; onMove: (sourceId: string | number, targetId: string | number, before: boolean) => void; onDelete: (job: Application) => void; canDelete: boolean; disabled: boolean }) {
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [dropTarget, setDropTarget] = useState<{ id: string; before: boolean } | null>(null)
   const finishDrag = () => { setDraggingId(null); setDropTarget(null) }
   return <aside className="job-workflow-sidebar" aria-label="同公司岗位">
     <header className="job-workflow-sidebar-heading"><div><span>投递岗位 ·</span><strong>{jobs.length}</strong></div><Button icon={Plus} size="small" disabled={disabled} onClick={onCreate}>新增</Button></header>
-    {!canDelete && <label className="job-workflow-sidebar-company">公司名称<input value={company} onChange={event => onCompanyChange(event.target.value)} placeholder="填写公司名称" disabled={disabled} /></label>}
     <div className="job-workflow-job-list">
       {jobs.map((job, index) => <div className={`job-workflow-job-row ${job.id === currentId ? 'current' : ''} ${draggingId === String(job.id) ? 'dragging' : ''} ${dropTarget?.id === String(job.id) ? dropTarget.before ? 'drop-before' : 'drop-after' : ''}`} key={job.id}
         draggable={!disabled}

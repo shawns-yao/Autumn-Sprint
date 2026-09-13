@@ -173,8 +173,6 @@
 .job-workflow-sidebar-heading strong { color: #2d6de8; font-size: 24px; line-height: 1; }
 .job-workflow-sidebar-heading .ui-button { min-height: 42px; padding: 8px 17px; border-color: #d6e5ff; border-radius: 10px; background: #eff5ff; color: #2165d1; font-size: 14px; box-shadow: none; }
 .job-workflow-sidebar-heading .ui-button:hover { border-color: #bfd5fb; background: #e5efff; color: #1d5ac0; box-shadow: none; transform: none; }
-.job-workflow-sidebar-company { display: grid; gap: 7px; margin-bottom: 14px; color: var(--ui-secondary); font-size: 12px; }
-.job-workflow-sidebar-company input { width: 100%; min-width: 0; height: var(--ui-control-height); padding: 8px 10px; border: 1px solid var(--ui-border); border-radius: var(--ui-radius); background: #fff; color: var(--ui-text); font-size: 14px; }
 .job-workflow-job-list { display: grid; gap: 12px; max-height: 420px; overflow: auto; }
 .job-workflow-job-row { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: stretch; gap: 12px; min-width: 0; padding: 17px 13px 17px 18px; border: 1px solid #e0e8f2; border-radius: 16px; background: #fff; cursor: grab; transition: border-color .16s ease, box-shadow .16s ease, transform .16s ease, opacity .16s ease; }
 .job-workflow-job-row:hover { border-color: #c5d9f8; box-shadow: 0 6px 15px #315b9912; transform: translateY(-1px); }
