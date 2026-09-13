@@ -57,7 +57,7 @@
 .job-time-label span, .job-next-step strong { display: block; color: #506b8d; font-size: 11px; white-space: nowrap; }
 .job-time-label small, .job-next-step small { display: block; margin-top: 3px; color: #8598b0; font-size: 10px; overflow-wrap: anywhere; }
 .job-time-label small { color: #ee6d6b; }
-.job-progress { display: grid; padding: 0; margin: 22px 0 20px; list-style: none; }
+.job-progress { display: grid; padding: 5px 0 10px; margin: 22px 0 20px; list-style: none; overflow-x: auto; }
 .job-progress li { position: relative; text-align: center; min-width: 0; }
 .job-step-button { display: block; width: 100%; padding: 0; border: 0; background: transparent; color: inherit; cursor: pointer; }
 .job-step-button:focus-visible { outline: 2px solid #2d86ff; outline-offset: 4px; border-radius: 4px; }
@@ -69,7 +69,7 @@
 .job-progress .current .job-step-dot { background: #3f73cf; border-color: #3f73cf; box-shadow: 0 0 0 3px #e2eaf9; }
 .job-progress .failed .job-step-dot { background: #d65e68; border-color: #d65e68; }
 .job-step-dot i { width: 7px; height: 7px; border-radius: 1px; background: #fff; }
-.job-step-label { display: block; font-size: 10px; white-space: nowrap; color: #425d7c; }
+.job-step-label { display: block; padding: 0 4px; font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #425d7c; }
 .job-progress time { display: block; min-height: 13px; margin-top: 4px; color: #8396b0; font-size: 9px; }
 .job-progress .current time { color: #2b83f7; }
 .job-progress.compact { margin: 0 -3px; }
@@ -145,10 +145,6 @@
 .job-current-stage h4 i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #378cff; box-shadow: 0 0 0 3px #e1eeff; }
 .job-stage-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 9px 13px; font-size: 10px; line-height: 1.7; color: #7890b0; }
 .job-stage-record textarea { min-height: 170px; }
-.job-review-tab { max-width: 960px; min-height: 100%; margin: 0 auto; }
-.job-review-editor { display: block; color: #617792; font-size: 12px; }
-.job-review-editor textarea { display: block; width: 100%; min-height: clamp(330px, 52vh, 560px); margin-top: 10px; padding: 15px 16px; resize: vertical; border: 1px solid #d8e3de; border-radius: 7px; background: #fff; color: #344a41; font-size: 13px; line-height: 1.75; }
-.job-review-editor textarea:focus { border-color: #78a995; outline: 3px solid #e1f0ea; }
 .job-stage-meta span { display: flex; align-items: center; gap: 5px; }
 .job-note-label { display: flex; justify-content: space-between; align-items: center; margin-top: 18px; color: #7f93af; font-size: 11px; }
 .job-note-label button { border: 0; background: transparent; color: #3784ed; font-size: 10px; }
@@ -172,6 +168,20 @@
 .job-stage-picker { display: flex; align-items: center; gap: 8px; color: #7890ab; font-size: 11px; }
 .job-stage-picker select, .job-stage-form > .job-section-title select { padding: 6px 9px; border: 1px solid #dbe6f3; border-radius: 4px; background: #fff; color: #365676; font-size: 12px; }
 .job-stage-form { margin: 26px 0 18px; padding-top: 18px; border-top: 1px solid #e5edf6; }
+.job-stage-editor-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 14px; margin-bottom: 18px; }
+.job-stage-editor-fields { display: grid; grid-template-columns: minmax(180px, 1fr) minmax(150px, .7fr); gap: 12px; flex: 1; }
+.job-stage-editor-fields label { color: #778ba6; font-size: 11px; }
+.job-stage-editor-fields input, .job-stage-editor-fields select { display: block; width: 100%; height: 35px; margin-top: 6px; border: 1px solid #dee8f5; border-radius: 4px; padding: 8px 9px; background: #fff; color: #2b4263; font-size: 12px; }
+.job-stage-editor-actions { display: flex; gap: 2px; }
+.job-stage-add { display: flex; align-items: center; gap: 8px; }
+.job-stage-add select { height: 35px; padding: 6px 9px; border: 1px solid #dee8f5; border-radius: 4px; background: #fff; color: #2b4263; font-size: 12px; }
+.job-time-range-field { min-width: 0; margin: 0; padding: 0; border: 0; }
+.job-time-range-field legend { padding: 0; color: #778ba6; font-size: 11px; }
+.job-time-range { display: flex; align-items: center; gap: 4px; margin-top: 6px; border: 1px solid #dee8f5; border-radius: 4px; background: #fff; }
+.job-form-grid .job-time-range input { width: 0; flex: 1; margin: 0; border: 0; border-radius: 4px; }
+.job-time-range span { flex-shrink: 0; color: #8598b0; font-size: 12px; }
+.job-stage-remove-confirm { display: flex; align-items: center; gap: 8px; margin-bottom: 18px; padding: 12px; background: #fff7f5; border: 1px solid #efccc6; border-radius: 6px; color: #94564b; font-size: 12px; }
+.job-stage-remove-confirm span { flex: 1; overflow-wrap: anywhere; }
 .job-material-row { display: flex; align-items: center; gap: 14px; padding: 20px 0; border-bottom: 1px solid #e8eff7; }
 .job-material-row > svg { color: #4b93ed; }
 .job-material-row > div { flex: 1; }

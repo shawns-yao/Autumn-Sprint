@@ -73,6 +73,13 @@ export function openDatabase(filename) {
     if (!db.prepare('PRAGMA table_info(applications)').all().some(column => column.name === 'revision')) {
       db.exec('ALTER TABLE applications ADD COLUMN revision INTEGER NOT NULL DEFAULT 0')
     }
+    if (!db.prepare('PRAGMA table_info(applications)').all().some(column => column.name === 'workflow_json')) {
+      db.exec('ALTER TABLE applications ADD COLUMN workflow_json TEXT')
+    }
+    if (!db.prepare('PRAGMA table_info(application_stages)').all().some(column => column.name === 'end_time')) {
+      db.exec('ALTER TABLE application_stages ADD COLUMN end_time TEXT')
+    }
+    db.prepare('INSERT OR IGNORE INTO schema_migrations VALUES (2, ?)').run(new Date().toISOString())
     if (!db.prepare('SELECT 1 FROM schema_migrations WHERE version=1').get()) {
       db.prepare('INSERT OR IGNORE INTO resource_links(id,name,url,note,updated_at) VALUES (?,?,?,?,?)').run('campus-wiki', '校招投递文档', 'https://campus.sma-wiki.cn/campus/campus_recruit.html?channel=sqtz_20', '', new Date().toISOString())
       db.prepare('INSERT INTO schema_migrations VALUES (1, ?)').run(new Date().toISOString())

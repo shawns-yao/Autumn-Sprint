@@ -1,0 +1,68 @@
+.job-dialog .job-notes-tab.job-review-tab { display: block; max-width: none; padding: 0; border: 0; border-radius: 0; box-shadow: none; background: transparent; }
+.job-review-metadata { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; margin-bottom: 20px; border-block: 1px solid var(--ui-border); background: #ffffffed; }
+.job-review-metadata > label, .review-tag-field { min-width: 0; padding: 14px 16px; }
+.job-review-metadata > label + label, .review-tag-field { border-left: 1px solid #e9efec; }
+.job-review-metadata label { color: var(--ui-secondary); font-size: 12px; }
+.job-review-metadata label > span, .review-tag-field > label { display: flex; align-items: center; gap: 7px; margin-bottom: 7px; }
+.job-review-metadata input, .job-review-metadata select { display: block; width: 100%; min-width: 0; height: 38px; padding: 7px 10px; border: 1px solid var(--ui-border); border-radius: 6px; background: #fff; color: var(--ui-text); font-size: 13px; }
+.review-tag-input { display: flex; align-items: center; min-width: 0; border: 1px solid var(--ui-border); border-radius: 6px; background: #fff; }
+.review-tag-input input { flex: 1; width: 0; height: 36px; border: 0; background: transparent; }
+.review-tag-input .ui-icon-button { flex-shrink: 0; }
+.review-tags { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; padding: 0 16px 14px; }
+.review-tags > span { display: inline-flex; align-items: center; gap: 5px; min-width: 0; max-width: 100%; padding: 2px 3px 2px 9px; border: 1px solid #d6e3f5; border-radius: 5px; background: #eff5ff; color: #3d6fba; font-size: 12px; overflow-wrap: anywhere; }
+.review-tags .ui-icon-button.ui-button--small { width: 25px; height: 25px; min-height: 25px; color: inherit; }
+.review-record-heading { display: flex; align-items: center; gap: 11px; margin: 0 0 14px; }
+.review-record-heading > svg { color: var(--ui-action); }
+.review-record-heading h3 { margin: 0; font-size: 17px; }
+.stage-record-label { margin-bottom: 8px; font-size: 12px; color: var(--ui-secondary); }
+.stage-rich-editor { overflow: hidden; border: 1px solid var(--ui-border); border-radius: 7px; background: #fff; }
+.review-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; min-height: 48px; padding: 6px 10px; border-bottom: 1px solid #e4ece8; background: #f8fbfa; }
+.review-text-style { display: flex; align-items: center; gap: 5px; padding-left: 3px; color: var(--ui-secondary); }
+.job-dialog .review-text-style select { width: 104px; height: 34px; margin: 0; padding: 4px 5px; border: 0; background: transparent; color: var(--ui-text); font-size: 12px; }
+.review-toolbar-group { display: flex; gap: 2px; padding-left: 5px; border-left: 1px solid #dfe8e3; }
+.review-toolbar .ui-icon-button { flex-shrink: 0; }
+.review-toolbar .ui-icon-button[aria-pressed="true"] { background: #e2f2e9; color: #16674f; }
+.review-toolbar .review-highlight { color: #a78012; }
+.review-toolbar .review-highlight[aria-pressed="true"] { color: #81600c; background: #fff0b0; }
+.review-history { margin-left: auto; }
+.review-content { min-width: 0; min-height: 350px; }
+.review-content .tiptap { min-height: 380px; padding: 20px 24px 32px; outline: none; overflow-wrap: anywhere; font-size: 14px; line-height: 1.85; color: var(--ui-text); }
+.review-content .tiptap:focus-visible { outline: 2px solid #85b9a1; outline-offset: -3px; }
+.review-content .tiptap > :first-child { margin-top: 0; }
+.review-content .tiptap > :last-child { margin-bottom: 0; }
+.review-content .tiptap p { margin: 6px 0 12px; }
+.review-content .tiptap :is(h1, h2, h3) { padding-left: 12px; margin: 22px 0 10px; border-left: 4px solid #288c70; line-height: 1.5; }
+.review-content .tiptap h1 { font-size: 21px; }
+.review-content .tiptap h2 { font-size: 18px; }
+.review-content .tiptap h3 { font-size: 16px; }
+.review-content .tiptap :is(ul, ol) { padding-left: 24px; margin: 8px 0 18px; }
+.review-content .tiptap li > p { margin: 2px 0; }
+.review-content .tiptap li > :is(ul, ol) { margin: 4px 0 10px; }
+.review-content .tiptap blockquote { margin: 14px 0; padding-left: 16px; border-left: 3px solid #b4cdec; color: var(--ui-secondary); }
+.review-content .tiptap pre { max-width: 100%; overflow: auto; padding: 14px; border-radius: 5px; background: #f1f5f8; white-space: pre; font-size: 12px; }
+.review-content .tiptap code { border-radius: 3px; padding: 2px 4px; background: #edf2f6; }
+.review-content .tiptap pre code { padding: 0; background: transparent; }
+.review-content .tiptap mark { border-radius: 2px; background: #ffed9c; color: inherit; }
+.review-content .tiptap a { color: var(--ui-blue); text-decoration: underline; }
+.review-content .tiptap hr { border: 0; border-top: 1px solid var(--ui-border); margin-block: 20px; }
+.stage-rich-editor.compact .review-content, .stage-rich-editor.compact .tiptap { min-height: 200px; }
+.job-dialog:has(.stage-rich-editor.is-expanded) { width: calc(100vw - 24px); height: calc(100dvh - 24px); }
+.job-dialog:has(.stage-rich-editor.is-expanded) :is(.job-dialog-header, .job-dialog-tabs, .job-review-metadata, .review-record-heading) { display: none; }
+.job-dialog:has(.stage-rich-editor.is-expanded) .job-dialog-body { padding: 12px; overflow: hidden; }
+.job-dialog:has(.stage-rich-editor.is-expanded) .job-review-tab { display: flex; flex-direction: column; height: 100%; }
+.stage-rich-editor.is-expanded { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.stage-rich-editor.is-expanded .review-toolbar { flex-shrink: 0; }
+.stage-rich-editor.is-expanded .review-content { flex: 1; min-height: 0; overflow-y: auto; }
+.stage-rich-editor.is-expanded .tiptap { min-height: 100%; }
+
+@media (max-width: 760px) {
+  .job-review-metadata { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .job-review-metadata > label, .review-tag-field { padding: 10px; }
+  .job-review-metadata > label:nth-child(3) { border-left: 0; }
+  .job-review-metadata > label:nth-child(3), .review-tag-field { border-top: 1px solid #e9efec; }
+  .review-tags { padding: 10px; }
+  .review-toolbar { padding: 6px; gap: 4px; }
+  .review-toolbar-group { padding-left: 4px; gap: 0; }
+  .review-history { margin-left: 0; }
+  .review-content .tiptap { padding: 16px; }
+}

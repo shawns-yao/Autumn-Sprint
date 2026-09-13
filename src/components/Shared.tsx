@@ -1,6 +1,6 @@
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode } from 'react'
 import { Check, ChevronLeft, ChevronRight, Inbox, Search, type LucideIcon } from 'lucide-react'
-import { statuses, type Application } from '../model'
+import { isClosed, workflowFor, type Application } from '../model'
 import HomeFlight from './HomeFlight'
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
@@ -48,15 +48,14 @@ export function Pagination({ page, total, size, onPage, onSize }: { page: number
   </nav>
 }
 export function ProgressRail({ app, compact = false }: { app: Application; compact?: boolean }) {
-  const steps = statuses.filter(name => !['技术面', '拒绝', '终止'].includes(name))
-  const index = steps.indexOf(app.status === '技术面' ? '一面' : app.status)
-  return <div className={`progress-rail ${compact ? 'compact' : ''}`} style={{ gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))` }}>{steps.map((name, i) => {
-    const field = i === 1 ? app.evaluation : i === 2 ? app.written : i === 3 ? app.aiInterview : undefined
-    const completed = i === 0 ? Boolean(app.applied) : field?.status === '已完成'
-    const current = index === i && !app.terminated
-    return <div className={`progress-step ${completed ? 'done' : ''} ${current ? 'current' : ''}`} key={name} title={`${name}：${field?.status || (current ? '当前阶段' : completed ? '已完成' : '未记录')}`}>
+  const stages = workflowFor(app)
+  const index = stages.findIndex(stage => stage.id === app.currentStageId || stage.label === app.status)
+  return <div className={`progress-rail ${compact ? 'compact' : ''}`} style={{ gridTemplateColumns: `repeat(${stages.length + 2}, minmax(0, 1fr))` }}>{[{ label: '投递', date: app.applied, status: '已完成' as string }, ...stages, { label: 'Offer', date: '', status: app.status === 'Offer' ? '已获 Offer' : '未开始' }].map((field, i) => {
+    const completed = field.status === '已完成' || field.status === '已获 Offer'
+    const current = i > 0 && i <= stages.length && index === i - 1 && !isClosed(app)
+    return <div className={`progress-step ${completed ? 'done' : ''} ${current ? 'current' : ''}`} key={`${field.label}-${i}`} title={`${field.label}：${field.status || (current ? '当前阶段' : completed ? '已完成' : '未记录')}`}>
       <span className="step-dot">{completed ? <Check size={11} strokeWidth={3} /> : null}</span>
-      {!compact && <><strong>{name}</strong><small>{(i === 0 ? app.applied : field?.date)?.slice(5) || '—'}</small></>}
+      {!compact && <><strong>{field.label}</strong><small>{field.date?.slice(5) || '—'}</small></>}
     </div>
   })}</div>
 }

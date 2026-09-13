@@ -1,6 +1,6 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { CalendarDays, LayoutGrid, List, MapPin } from 'lucide-react'
-import { lifecycle, nextEvent, normalizedStatus, relativeDate, statuses, type Application } from '../model'
+import { lifecycle, nextEvent, normalizedStatus, relativeDate, statuses, timeRange, workflowFor, type Application } from '../model'
 import { Button, CompanyMark, Empty, Heading, IconButton, Pagination, SearchField } from './Shared'
 import { ApplicationProgress, ApplicationState } from './ApplicationProgress'
 import './applications.css'
@@ -39,7 +39,7 @@ export default function Applications({ apps, query, setQuery, selectedId, onOpen
     <div className="jobs-toolbar">
       <SearchField className="jobs-search" label="搜索岗位" placeholder="搜索公司、岗位、来源…" value={query} onChange={event => change(setQuery, event.target.value)} />
       <select aria-label="岗位状态筛选" value={status} onChange={event => change(setStatus, event.target.value)}><option value="">全部状态</option>{['进行中', '已终止', '已结束', 'Offer'].map(value => <option key={value}>{value}</option>)}</select>
-      <select aria-label="招聘阶段筛选" value={stage} onChange={event => change(setStage, event.target.value)}><option value="">全部阶段</option>{statuses.filter(value => !['技术面', '拒绝', '终止'].includes(value)).map(value => <option key={value}>{value}</option>)}</select>
+      <select aria-label="招聘阶段筛选" value={stage} onChange={event => change(setStage, event.target.value)}><option value="">全部阶段</option>{[...new Set([...statuses.filter(value => !['拒绝', '终止'].includes(value)), ...apps.flatMap(app => workflowFor(app).map(stage => stage.label))])].map(value => <option key={value}>{value}</option>)}</select>
       <select aria-label="城市筛选" value={city} onChange={event => change(setCity, event.target.value)}><option value="">全部城市</option>{[...new Set(apps.flatMap(citiesFor))].sort().map(value => <option key={value}>{value}</option>)}</select>
       <select aria-label="岗位排序" value={sort} onChange={event => change(setSort, event.target.value)}><option value="newest">投递时间：最新</option><option value="oldest">投递时间：最早</option></select>
       <span className="jobs-count">共 {filtered.length} 个岗位</span>
@@ -68,7 +68,7 @@ function KeyDate({ app }: { app: Application }) {
   const event = nextEvent(app)
   const state = lifecycle(app)
   const ended = ['已终止', '已结束', 'Offer'].includes(state)
-  return <div className="job-key-date"><div><CalendarDays size={14} /><span>{ended ? '无后续安排' : event ? `${event.date} ${event.time}` : '暂无安排'}</span></div><small>{ended ? state === 'Offer' ? '已获得 Offer' : '已结束流程' : event ? `${event.label}${event.stage.location ? ` · ${event.stage.location}` : ''}` : '等待通知'}</small>{event && !ended && <em>{relativeDate(event.date)}</em>}</div>
+  return <div className="job-key-date"><div><CalendarDays size={14} /><span>{ended ? '无后续安排' : event ? `${event.date} ${timeRange(event.stage)}` : '暂无安排'}</span></div><small>{ended ? state === 'Offer' ? '已获得 Offer' : '已结束流程' : event ? `${event.label}${event.stage.location ? ` · ${event.stage.location}` : ''}` : '等待通知'}</small>{event && !ended && <em>{relativeDate(event.date)}</em>}</div>
 }
 
 function TimeLabel({ app }: { app: Application }) {
@@ -81,5 +81,5 @@ function NextStep({ app }: { app: Application }) {
   const ended = ['已终止', '已结束', 'Offer'].includes(state)
   if (ended) return <div className="job-next-step"><strong>{state === 'Offer' ? '已获得 Offer' : '流程已结束'}</strong><small>{state}</small></div>
   if (!event) return <div className="job-next-step"><strong>暂无安排</strong><small>等待通知</small></div>
-  return <div className="job-next-step"><strong>{event.label}</strong><small>{[event.date, event.time, event.stage.location].filter(Boolean).join(' · ') || '待补充安排'}</small></div>
+  return <div className="job-next-step"><strong>{event.label}</strong><small>{[[event.date, timeRange(event.stage)].filter(Boolean).join(' '), event.stage.location].filter(Boolean).join(' · ') || '待补充安排'}</small></div>
 }

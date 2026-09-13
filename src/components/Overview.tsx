@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { BarChart3, CalendarDays, ChevronRight, ClipboardList, Filter, Send, TrendingUp, Trophy, CircleX } from 'lucide-react'
-import { eventsFor, isClosed, localDate, recruitmentFunnel, type Application, type View } from '../model'
+import { eventsFor, isClosed, localDate, normalizedStatus, recruitmentFunnel, timeRange, workflowFor, type Application, type View } from '../model'
 import { Heading } from './Shared'
 import './overview.css'
 
@@ -11,7 +11,6 @@ type Props = {
   action?: ReactNode
 }
 
-const stages = ['已投递', '测评', '笔试', 'AI 面试', '一面', '二面', '三面', 'HR 面']
 const colors = ['#3e78d8', '#61a5dd', '#3da58c', '#68a8a0', '#d99a3c', '#df7668', '#b87943', '#cb637f']
 
 export default function Overview({ apps, onOpen, onView, action }: Props) {
@@ -20,9 +19,10 @@ export default function Overview({ apps, onOpen, onView, action }: Props) {
   const today = localDate(now)
   const active = apps.filter(app => !isClosed(app) && app.status !== 'Offer')
   const offers = apps.filter(app => !isClosed(app) && app.status === 'Offer')
-  const distribution = stages.map(stage => ({
+  const stageNames = ['已投递', ...new Set(active.flatMap(app => workflowFor(app).map(stage => stage.label)))]
+  const distribution = stageNames.map(stage => ({
     stage,
-    count: active.filter(app => (app.status === '技术面' ? '一面' : app.status) === stage).length,
+    count: active.filter(app => normalizedStatus(app) === stage).length,
   }))
   const maxCount = Math.max(1, ...distribution.map(item => item.count))
   const scoped = company ? apps.filter(app => app.company === company) : apps
@@ -56,7 +56,7 @@ export default function Overview({ apps, onOpen, onView, action }: Props) {
         <header className="home-section-heading"><BarChart3 /><div><h2>当前流程分布</h2><p>在进行中的 {active.length} 个流程中，各阶段的分布情况</p></div><button className="home-link" onClick={() => onView('applications')}>查看全部<ChevronRight size={15} /></button></header>
         <div className="home-distribution">
           {distribution.map(({ stage, count }, index) => <div className="home-stage" key={stage}>
-            <span>{stage}</span><div className="home-stage-track" role="meter" aria-label={stage} aria-valuemin={0} aria-valuemax={maxCount} aria-valuenow={count}><span style={{ width: `${count / maxCount * 100}%`, background: colors[index] }} /></div><strong>{count}</strong>
+            <span title={stage}>{stage}</span><div className="home-stage-track" role="meter" aria-label={stage} aria-valuemin={0} aria-valuemax={maxCount} aria-valuenow={count}><span style={{ width: `${count / maxCount * 100}%`, background: colors[index % colors.length] }} /></div><strong>{count}</strong>
           </div>)}
         </div>
       </section>
@@ -81,7 +81,7 @@ export default function Overview({ apps, onOpen, onView, action }: Props) {
       <section className="home-section home-lower">
         <header className="home-section-heading"><CalendarDays /><div><h2>即将到来的节点</h2><p>下一个重要的面试或考试安排</p></div><button className="home-link" onClick={() => onView('applications')}>查看岗位<ChevronRight size={15} /></button></header>
         <div className="home-events">{upcoming.length ? upcoming.map(event => <button className="home-event" key={event.id} onClick={() => onOpen(event.app)}>
-          <strong>{event.date.slice(5).replace('-', ' / ')}</strong><span className="home-weekday">{new Date(`${event.date}T00:00:00`).toLocaleDateString('zh-CN', { weekday: 'short' })}</span><i style={{ background: colors[Math.max(0, stages.indexOf(event.label))] }} /><span className="home-event-title"><b>{event.app.company} · {event.label}</b>{(event.time || event.stage.location) && <small>{[event.time, event.stage.location].filter(Boolean).join(' · ')}</small>}</span><ChevronRight size={17} />
+          <strong>{event.date.slice(5).replace('-', ' / ')}</strong><span className="home-weekday">{new Date(`${event.date}T00:00:00`).toLocaleDateString('zh-CN', { weekday: 'short' })}</span><i style={{ background: colors[Math.max(0, stageNames.indexOf(event.label)) % colors.length] }} /><span className="home-event-title"><b>{event.app.company} · {event.label}</b>{(event.time || event.endTime || event.stage.location) && <small>{[timeRange(event.stage), event.stage.location].filter(Boolean).join(' · ')}</small>}</span><ChevronRight size={17} />
         </button>) : <div className="home-no-events"><CalendarDays size={28} /><span>暂无即将到来的安排</span></div>}</div>
       </section>
     </div>

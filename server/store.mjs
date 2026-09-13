@@ -1,7 +1,8 @@
 import { randomUUID, createHash } from 'node:crypto'
-import { application, stageMap, object, text, url, identifier, integer, stringArray, requireValue, HttpError } from './validation.mjs'
+import { application, stageMap, stageKind, object, text, url, identifier, integer, stringArray, requireValue, HttpError } from './validation.mjs'
 
-const emptyStage = () => ({ status: '未开始', date: '', time: '', location: '', link: '', requirements: '', notes: '' })
+const emptyStage = () => ({ status: '未开始', date: '', time: '', endTime: '', location: '', link: '', requirements: '', notes: '' })
+const storageName = id => Object.hasOwn(stageMap, id) ? stageMap[id] : `node-${id}`
 const defaultSettings = { staleEnabled: true, staleDays: 7, interviewEnabled: true, interviewHours: 24, examEnabled: true, examHours: 6 }
 const now = () => new Date().toISOString()
 export function createStore(db) {
@@ -17,12 +18,20 @@ export function createStore(db) {
     const stageGroups = Map.groupBy(stages, item => item.application_id)
     const fileGroups = Map.groupBy(attachments, item => item.application_id)
     const items = rows.map(row => {
-      const byName = Object.fromEntries((stageGroups.get(row.id) || []).map(stage => [stage.stage_name, Object.fromEntries(Object.keys(emptyStage()).map(key => [key, stage[key] || (key === 'status' ? '未开始' : '')]))]))
+      const byName = Object.fromEntries((stageGroups.get(row.id) || []).map(stage => [stage.stage_name, Object.fromEntries(Object.keys(emptyStage()).map(key => [key, stage[key === 'endTime' ? 'end_time' : key] || (key === 'status' ? '未开始' : '')]))]))
+      const legacy = Object.fromEntries(Object.entries(stageMap).map(([key, name]) => [key, byName[name] || (key === 'firstInterview' ? byName['技术面'] : key === 'aiInterview' ? byName['AI面试'] : key === 'hrInterview' ? byName.HR : undefined) || emptyStage()]))
+      let metadata
+      try { metadata = row.workflow_json ? JSON.parse(row.workflow_json) : null }
+      catch { throw new HttpError(500, '招聘流程数据格式异常，请先备份后修复') }
+      requireValue(!metadata || (Array.isArray(metadata.stages) && typeof metadata.currentStageId === 'string'), '招聘流程数据格式异常', 500)
+      const workflow = metadata ? metadata.stages.map(node => ({ ...emptyStage(), ...byName[storageName(node.id)], ...node }))
+        : Object.entries(stageMap).filter(([id, label]) => id !== 'initialScreening' || byName[label]).map(([id, label]) => ({ ...legacy[id], id, label, kind: stageKind(id) }))
+      const currentStageId = metadata?.currentStageId ?? (workflow.find(stage => ['已终止', '未通过', '已获 Offer'].includes(stage.status)) || workflow.find(stage => stage.label === row.status || (row.status === '技术面' && stage.id === 'firstInterview')))?.id ?? ''
       return {
-        id: row.id, company: row.company_name, title: row.title || '', city: row.city || '', status: row.status === '技术面' ? '一面' : row.status,
+        id: row.id, company: row.company_name, title: row.title || '', city: row.city || '', status: row.status === '技术面' && !metadata ? '一面' : row.status,
         applied: row.applied_date || '', source: row.source || '', website: row.official_url || '', priority: row.priority || '中',
         jd: row.jd_text || '', resume: row.resume_name || '', terminated: Boolean(row.terminated), revision: row.revision, updatedAt: row.updated_at,
-        ...Object.fromEntries(Object.entries(stageMap).map(([key, name]) => [key, byName[name] || (key === 'firstInterview' ? byName['技术面'] : key === 'aiInterview' ? byName['AI面试'] : key === 'hrInterview' ? byName.HR : undefined) || emptyStage()])),
+        ...legacy, workflow, currentStageId,
         attachments: (fileGroups.get(row.id) || []).map(({ application_id, ...file }) => ({ ...file, url: `/api/attachments/${file.id}` })),
       }
     })
@@ -34,19 +43,22 @@ export function createStore(db) {
     const value = application(input)
     const previous = db.prepare('SELECT * FROM applications WHERE id = ?').get(value.id)
     requireValue(!previous || value.revision === previous.revision, '岗位已被其他页面更新，请重新打开后编辑', 409)
+    requireValue(!previous?.workflow_json || value.workflow, '岗位使用自定义流程，请重新加载后编辑', 409)
     const companyId = db.prepare('INSERT INTO companies(name) VALUES (?) ON CONFLICT(name) DO UPDATE SET name=excluded.name RETURNING id').get(value.company).id
     db.prepare(`INSERT INTO applications(id,company_id,title,city,status,applied_date,source,official_url,priority,jd_text,terminated,resume_name,updated_at,revision)
       VALUES (@id,@companyId,@title,@city,@status,@applied,@source,@website,@priority,@jd,@terminated,@resume,@updatedAt,1)
       ON CONFLICT(id) DO UPDATE SET company_id=excluded.company_id,title=excluded.title,city=excluded.city,status=excluded.status,
       applied_date=excluded.applied_date,source=excluded.source,official_url=excluded.official_url,priority=excluded.priority,jd_text=excluded.jd_text,
       terminated=excluded.terminated,resume_name=excluded.resume_name,updated_at=excluded.updated_at,revision=applications.revision+1`).run({ ...value, companyId, terminated: Number(value.terminated), updatedAt: now() })
-    const stages = Object.entries(stageMap).map(([key, name]) => ({ ...value[key], name }))
-    db.prepare(`INSERT INTO application_stages(application_id,stage_name,status,date,time,location,link,requirements,notes)
+    const stages = value.workflow ? value.workflow.map(node => ({ ...node, name: storageName(node.id) })) : Object.entries(stageMap).filter(([key]) => key !== 'initialScreening' || Boolean(input[key] && (Object.entries(input[key]).some(([field, item]) => field !== 'status' && item) || input[key].status !== '未开始'))).map(([key, name]) => ({ ...value[key], name }))
+    db.prepare(`INSERT INTO application_stages(application_id,stage_name,status,date,time,end_time,location,link,requirements,notes)
       SELECT @id,json_extract(value,'$.name'),json_extract(value,'$.status'),json_extract(value,'$.date'),json_extract(value,'$.time'),
-        json_extract(value,'$.location'),json_extract(value,'$.link'),json_extract(value,'$.requirements'),json_extract(value,'$.notes')
+        json_extract(value,'$.endTime'),json_extract(value,'$.location'),json_extract(value,'$.link'),json_extract(value,'$.requirements'),json_extract(value,'$.notes')
       FROM json_each(@stages) WHERE true
-      ON CONFLICT(application_id,stage_name) DO UPDATE SET status=excluded.status,date=excluded.date,time=excluded.time,
+      ON CONFLICT(application_id,stage_name) DO UPDATE SET status=excluded.status,date=excluded.date,time=excluded.time,end_time=excluded.end_time,
         location=excluded.location,link=excluded.link,requirements=excluded.requirements,notes=excluded.notes`).run({ id: value.id, stages: JSON.stringify(stages) })
+    // Workflow metadata is core configuration; removed stage rows and event snapshots remain historical records.
+    db.prepare('UPDATE applications SET workflow_json=? WHERE id=?').run(value.workflow ? JSON.stringify({ stages: value.workflow.map(({ id, label, kind, review }) => ({ id, label, kind, ...(review ? { review } : {}) })), currentStageId: value.currentStageId }) : null, value.id)
     db.prepare('INSERT INTO application_events(application_id,event_type,payload_json,created_at) VALUES (?,?,?,?)').run(value.id, previous ? 'updated' : 'created', JSON.stringify(value), now())
     return getApplication(value.id)
   })
@@ -150,12 +162,14 @@ export function createStore(db) {
     for (const app of applications.filter(item => !['拒绝', '终止', 'Offer'].includes(item.status))) {
       const updated = Date.parse(app.updatedAt.includes('T') ? app.updatedAt : app.updatedAt.replace(' ', 'T') + 'Z')
       if (config.staleEnabled && Number.isFinite(updated) && current - updated >= config.staleDays * 86400000) result.push({ id: `${app.id}-stale`, applicationId: app.id, company: app.company, label: `超过 ${config.staleDays} 天未更新` })
-      for (const [key, label] of Object.entries(stageMap)) {
-        const stage = app[key]
-        const exam = ['evaluation', 'written'].includes(key)
-        if (stage.status !== '已安排' || !stage.date || !(exam ? config.examEnabled : config.interviewEnabled)) continue
+      for (const stage of app.workflow) {
+        const { id: key, label } = stage
+        if (!['exam', 'interview'].includes(stage.kind)) continue
+        const exam = stage.kind === 'exam'
+        if (!['已安排', '进行中'].includes(stage.status) || !stage.date || !(exam ? config.examEnabled : config.interviewEnabled)) continue
         const due = new Date(`${stage.date}T${stage.time || '23:59'}:00+08:00`).getTime()
-        if (due - current <= (exam ? config.examHours : config.interviewHours) * 3600000) result.push({ id: `${app.id}-${key}`, applicationId: app.id, company: app.company, label: `${label} · ${stage.date} ${stage.time}${due < current ? ' · 已过时间，请更新结果' : ''}` })
+        const ends = stage.endTime ? new Date(`${stage.date}T${stage.endTime}:00+08:00`).getTime() : due
+        if (due - current <= (exam ? config.examHours : config.interviewHours) * 3600000) result.push({ id: `${app.id}-${key}`, applicationId: app.id, company: app.company, label: `${label} · ${stage.date} ${stage.time}${stage.endTime ? ` - ${stage.endTime}` : ''}${ends < current ? ' · 已过时间，请更新结果' : due < current ? ' · 进行中' : ''}` })
       }
     }
     return result

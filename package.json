@@ -12,6 +12,11 @@
     "test:targeted": "node Test/targeted/api.mjs"
   },
   "dependencies": {
+    "@tiptap/extension-highlight": "3.31.3",
+    "@tiptap/extension-text-align": "3.31.3",
+    "@tiptap/markdown": "3.31.3",
+    "@tiptap/react": "3.31.3",
+    "@tiptap/starter-kit": "3.31.3",
     "@vitejs/plugin-react": "latest",
     "better-sqlite3": "^13.0.3",
     "lucide-react": "latest",
