@@ -4,8 +4,20 @@ import { application, stageMap, stageKind, object, text, url, identifier, intege
 const emptyStage = () => ({ status: '未开始', date: '', time: '', endTime: '', location: '', link: '', requirements: '', notes: '' })
 const storageName = id => Object.hasOwn(stageMap, id) ? stageMap[id] : `node-${id}`
 const defaultSettings = { staleEnabled: true, staleDays: 7, interviewEnabled: true, interviewHours: 24, examEnabled: true, examHours: 6 }
+const defaultAiSettings = { providerName: '', note: '', website: '', baseUrl: '', model: '', protocol: 'responses', apiKey: '' }
 const now = () => new Date().toISOString()
 export function createStore(db) {
+  function rawSettings() {
+    const value = db.prepare('SELECT value_json FROM app_settings WHERE id=1').get()?.value_json
+    if (!value) return {}
+    try {
+      const parsed = JSON.parse(value)
+      return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {}
+    } catch { throw new HttpError(500, '设置数据格式异常，请先备份数据库后修复') }
+  }
+  function writeSettings(value) {
+    db.prepare('INSERT INTO app_settings VALUES (1,?) ON CONFLICT(id) DO UPDATE SET value_json=excluded.value_json').run(JSON.stringify(value))
+  }
   function readApplications({ page, pageSize = 100, query = '', id } = {}) {
     const where = `WHERE (@query = '' OR instr(lower(c.name || ' ' || coalesce(a.title, '') || ' ' || a.status), lower(@query)) > 0) AND (@id IS NULL OR a.id=@id)`
     const params = { query, id: id || null }
@@ -142,7 +154,10 @@ export function createStore(db) {
     const result = db.prepare('UPDATE resource_links SET deleted_at=? WHERE id=? AND updated_at=? AND deleted_at IS NULL').run(now(), id, text(input.updatedAt, '资源版本', 50, true))
     requireValue(result.changes === 1, '资源已修改或已删除，请刷新', 409)
   }
-  function settings() { return { ...defaultSettings, ...JSON.parse(db.prepare('SELECT value_json FROM app_settings WHERE id=1').get()?.value_json || '{}') } }
+  function settings() {
+    const stored = rawSettings()
+    return Object.fromEntries(Object.keys(defaultSettings).map(key => [key, stored[key] ?? defaultSettings[key]]))
+  }
   function saveSettings(input) {
     object(input)
     const result = {}
@@ -152,8 +167,37 @@ export function createStore(db) {
     result.staleDays = integer(input.staleDays, '未更新天数', 1, 365)
     result.interviewHours = integer(input.interviewHours, '面试提前小时', 1, 168)
     result.examHours = integer(input.examHours, '考试提前小时', 1, 168)
-    db.prepare('INSERT INTO app_settings VALUES (1,?) ON CONFLICT(id) DO UPDATE SET value_json=excluded.value_json').run(JSON.stringify(result))
+    writeSettings({ ...rawSettings(), ...result })
     return result
+  }
+  function resolveAiSettings(input, requireModel = true) {
+    object(input)
+    const current = { ...defaultAiSettings, ...(rawSettings().ai || {}) }
+    const baseUrl = url(text(input.baseUrl ?? current.baseUrl, 'API 基础地址', 4000, true), 'API 基础地址').replace(/\/$/, '')
+    const protocol = text(input.protocol ?? current.protocol, '接口格式', 30, true)
+    requireValue(['responses', 'chat_completions'].includes(protocol), '接口格式只支持 Responses API 或 Chat Completions')
+    const apiKeyInput = input.apiKey === undefined ? '' : text(input.apiKey, 'API Key', 4000)
+    requireValue(input.clearApiKey === undefined || typeof input.clearApiKey === 'boolean', '清除密钥标记必须是布尔值')
+    const result = {
+      providerName: text(input.providerName ?? current.providerName, '供应商名称', 100, requireModel),
+      note: text(input.note ?? current.note, '供应商备注', 300),
+      website: url(text(input.website ?? current.website, '供应商官网', 4000), '供应商官网'),
+      baseUrl,
+      model: text(input.model ?? current.model, '默认模型', 200, requireModel),
+      protocol,
+      apiKey: input.clearApiKey ? '' : apiKeyInput || current.apiKey,
+    }
+    return result
+  }
+  function publicAiSettings(value = { ...defaultAiSettings, ...(rawSettings().ai || {}) }) {
+    const { apiKey, ...visible } = value
+    return { ...visible, hasApiKey: Boolean(apiKey) }
+  }
+  function aiSettings() { return publicAiSettings() }
+  function saveAiSettings(input) {
+    const value = resolveAiSettings(input)
+    writeSettings({ ...rawSettings(), ai: value })
+    return publicAiSettings(value)
   }
   function reminders(applications = readApplications().items) {
     const config = settings()
@@ -202,5 +246,5 @@ export function createStore(db) {
   function deleteAttachment(id) {
     requireValue(db.prepare('UPDATE stored_attachments SET deleted_at=? WHERE id=? AND deleted_at IS NULL').run(now(), id).changes === 1, '附件不存在', 404)
   }
-  return { readApplications, getApplication, saveApplication, readNotes, saveNote, deleteNote, importLegacy, readResources, saveResource, deleteResource, settings, saveSettings, reminders, saveAttachment, attachment, deleteAttachment }
+  return { readApplications, getApplication, saveApplication, readNotes, saveNote, deleteNote, importLegacy, readResources, saveResource, deleteResource, settings, saveSettings, aiSettings, saveAiSettings, resolveAiSettings, reminders, saveAttachment, attachment, deleteAttachment }
 }

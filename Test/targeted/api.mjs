@@ -3,6 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { spawn } from 'node:child_process'
 import { once } from 'node:events'
+import http from 'node:http'
 
 const root = path.resolve('.')
 const output = path.resolve('Test/output', `api-${Date.now()}`)
@@ -49,7 +50,29 @@ let note
 let resource
 let file
 const bytes = Buffer.from('targeted attachment roundtrip')
+let aiServer
+let aiBase
+const aiRequests = []
+async function startAiServer() {
+  aiServer = http.createServer(async (req, res) => {
+    const chunks = []
+    for await (const chunk of req) chunks.push(chunk)
+    const body = chunks.length ? JSON.parse(Buffer.concat(chunks).toString('utf8')) : undefined
+    aiRequests.push({ url: req.url, authorization: req.headers.authorization, body })
+    res.setHeader('Content-Type', 'application/json')
+    if (req.url === '/v1/models') return res.end(JSON.stringify({ data: [{ id: 'mock-small' }, { id: 'mock-large' }] }))
+    if (body?.model === 'invalid-model') return res.end(JSON.stringify({ message: 'not a model response' }))
+    if (body?.model === 'unauthorized-model') { res.statusCode = 401; return res.end(JSON.stringify({ error: { message: `Invalid ${req.headers.authorization}` } })) }
+    if (req.url === '/v1/responses') return res.end(JSON.stringify({ id: 'response-1', model: body.model, status: 'completed', output: [{ type: 'message', content: [{ type: 'output_text', text: 'OK' }] }] }))
+    if (req.url === '/v1/chat/completions') return res.end(JSON.stringify({ id: 'chat-1', model: body.model, choices: [{ message: { role: 'assistant', content: 'OK' }, finish_reason: 'stop', index: 0 }] }))
+    res.statusCode = 404; res.end(JSON.stringify({ error: { message: 'not found' } }))
+  })
+  aiServer.listen(0, '127.0.0.1')
+  await once(aiServer, 'listening')
+  aiBase = `http://127.0.0.1:${aiServer.address().port}/v1`
+}
 try {
+  await startAiServer()
   await start()
   await check('空数据库不产生示例岗位', async () => assert.deepEqual((await call('/api/workspace')).applications, []))
   await check('异常 JSON 返回 400，服务继续可用', async () => {
@@ -145,6 +168,25 @@ try {
     assert.match((await call('/api/reminders')).find(item => item.applicationId === saved.id).label, /12:00 - 13:30/)
     await call('/api/settings', 'POST', settings)
   })
+  await check('OpenAI 兼容配置保存、密钥遮蔽与真实协议请求', async () => {
+    const empty = await call('/api/ai/settings')
+    assert.equal(empty.hasApiKey, false); assert.equal('apiKey' in empty, false)
+    const config = { providerName: '本地兼容服务', note: '定向测试', website: '', baseUrl: aiBase, model: 'mock-small', protocol: 'responses', apiKey: 'secret-token' }
+    const savedConfig = await call('/api/ai/settings', 'POST', config)
+    assert.equal(savedConfig.hasApiKey, true); assert.equal('apiKey' in savedConfig, false)
+    const responseTest = await call('/api/ai/test', 'POST', { ...savedConfig, apiKey: '' })
+    assert.equal(responseTest.ok, true); assert.equal(responseTest.protocol, 'responses')
+    assert.equal(aiRequests.at(-1).url, '/v1/responses'); assert.equal(aiRequests.at(-1).authorization, 'Bearer secret-token')
+    const models = await call('/api/ai/models', 'POST', { ...savedConfig, apiKey: '' })
+    assert.deepEqual(models.models, ['mock-large', 'mock-small']); assert.equal(aiRequests.at(-1).url, '/v1/models')
+    const chatTest = await call('/api/ai/test', 'POST', { ...savedConfig, protocol: 'chat_completions', apiKey: '' })
+    assert.equal(chatTest.protocol, 'chat_completions'); assert.equal(aiRequests.at(-1).url, '/v1/chat/completions')
+    await call('/api/ai/test', 'POST', { ...savedConfig, model: 'invalid-model' }, 502)
+    const error = await call('/api/ai/test', 'POST', { ...savedConfig, model: 'unauthorized-model' }, 502)
+    assert.equal(error.error.includes('secret-token'), false)
+    await call('/api/ai/settings', 'POST', { ...savedConfig, baseUrl: 'javascript:alert(1)' }, 400)
+    assert.equal((await call('/api/export')).settings.apiKey, undefined)
+  })
   await check('超过 100 条岗位完整加载及分页', async () => {
     for (let i = 0; i < 102; i++) await call('/api/applications', 'POST', app(`page-${i}`))
     assert.equal((await call('/api/workspace')).applications.length, 103)
@@ -208,4 +250,4 @@ try {
 } catch (error) {
   fs.writeFileSync(path.join(output, 'results.json'), JSON.stringify({ type: '定向测试', results, failed: String(error) }, null, 2))
   throw error
-} finally { await stop() }
+} finally { await stop(); if (aiServer) await new Promise(resolve => aiServer.close(resolve)) }

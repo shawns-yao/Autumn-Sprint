@@ -9,7 +9,7 @@
 .settings-card-heading h2 { margin: 1px 0 5px; font-size: 17px; }
 .settings-card-heading p { margin: 0; color: #7b8984; font-size: 12px; line-height: 1.65; }
 .settings-card-icon { display: grid; place-items: center; flex-shrink: 0; width: 42px; height: 42px; border-radius: 7px; background: #e9f6f1; color: #18775f; }
-.settings-card-icon.service { background: #edf3ff; color: #356bc4; }
+.settings-card-icon.ai { background: #edf3ff; color: #356bc4; }
 .settings-card-icon.export { background: #fff4df; color: #a66f1c; }
 .real-settings h2 { margin: 0; font-size: 18px; }
 .real-settings fieldset { border: 0; padding: 0; margin: 0; }
@@ -18,13 +18,24 @@
 .real-setting-row span:first-of-type { min-width: 0; }
 .real-setting-row input[type="number"] { width: 86px; height: 36px; padding: 6px 9px; border: 1px solid #d8e2de; border-radius: 7px; color: #34463e; }
 .real-setting-row input[type="checkbox"] { width: 17px; height: 17px; }
-.settings-service { display: flex; align-items: center; justify-content: space-between; gap: 24px; min-height: 42px; }
-.settings-health { display: inline-flex; align-items: center; gap: 9px; color: #66756f; font-size: 13px; }
-.settings-health i { width: 8px; height: 8px; border-radius: 50%; background: #9ca8a3; box-shadow: 0 0 0 4px #eff2f1; }
-.settings-health.healthy { color: #18775f; }
-.settings-health.healthy i { background: #2d9b79; box-shadow: 0 0 0 4px #e3f4ed; }
-.settings-health.failed { color: #b84957; }
-.settings-health.failed i { background: #cf5966; box-shadow: 0 0 0 4px #fce7ea; }
+.settings-ai-card { display: block; padding: 0; overflow: hidden; }
+.settings-ai-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 22px 24px; border-bottom: 1px solid #e1e9e5; background: #fbfcfc; }
+.ai-compatible-badge { display: inline-flex; align-items: center; min-height: 28px; padding: 4px 9px; border: 1px solid #cddbf2; border-radius: 6px; background: #edf3ff; color: #3567b8; font-size: 11px; font-weight: 600; }
+.ai-settings-form { padding: 24px; }
+.ai-settings-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 20px; }
+.ai-settings-grid > label { display: block; min-width: 0; color: #596c64; font-size: 12px; }
+.ai-settings-grid input, .ai-settings-grid select { display: block; width: 100%; height: 40px; margin-top: 7px; padding: 8px 11px; border: 1px solid #d8e2de; border-radius: 7px; background: #fff; color: #30443b; font-size: 13px; }
+.ai-settings-grid small { display: block; margin-top: 6px; color: #82908b; font-size: 10px; line-height: 1.6; }
+.ai-field-wide { grid-column: 1 / -1; }
+.ai-secret-field, .ai-model-field { display: flex; align-items: center; gap: 8px; margin-top: 7px; }
+.ai-secret-field { position: relative; gap: 0; }
+.ai-secret-field input, .ai-model-field input { margin-top: 0; }
+.ai-secret-field input { padding-right: 48px; }
+.ai-secret-field .ui-icon-button { position: absolute; right: 2px; width: 36px; height: 36px; min-height: 36px; }
+.ai-model-field .ui-button { height: 40px; }
+.ai-settings-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; margin-top: 22px; padding-top: 18px; border-top: 1px solid #e5ece9; }
+.ai-settings-actions > span { flex: 1; min-width: 0; color: #7b8984; font-size: 12px; overflow-wrap: anywhere; }
+.ai-settings-actions > span.success { color: #18775f; }
 .settings-export { align-items: center; }
 .settings-export > .ui-button { justify-self: end; }
 .real-settings > p[role="status"] { min-height: 24px; margin: 12px 2px; color: #18775f; font-size: 12px; }

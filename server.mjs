@@ -3,6 +3,7 @@ import path from 'node:path'
 import { openDatabase } from './server/database.mjs'
 import { createStore } from './server/store.mjs'
 import { HttpError, requireValue, integer, identifier } from './server/validation.mjs'
+import { listAiModels, testAiProvider } from './server/ai.mjs'
 
 const port = Number(process.env.API_PORT || 8787)
 const db = openDatabase(path.resolve(process.env.DB_PATH || 'data/autumn-sprint.sqlite'))
@@ -63,6 +64,7 @@ const server = http.createServer(async (req, res) => {
       }
       if (pathname === '/api/resources') return json(res, store.readResources())
       if (pathname === '/api/settings') return json(res, store.settings())
+      if (pathname === '/api/ai/settings') return json(res, store.aiSettings())
       if (pathname === '/api/reminders') return json(res, store.reminders())
       if (pathname === '/api/export') return json(res, db.transaction(() => ({ version: 1, exportedAt: new Date().toISOString(), applications: store.readApplications().items, notes: store.readNotes(), resources: store.readResources(), settings: store.settings() }))())
       const fileMatch = pathname.match(/^\/api\/attachments\/([\w-]+)$/)
@@ -83,6 +85,9 @@ const server = http.createServer(async (req, res) => {
       if (pathname === '/api/resources/import') return json(res, store.importLegacy('resources', await readBody(req)))
       if (pathname === '/api/resources') return json(res, store.saveResource(await readBody(req)))
       if (pathname === '/api/settings') return json(res, store.saveSettings(await readBody(req)))
+      if (pathname === '/api/ai/settings') return json(res, store.saveAiSettings(await readBody(req)))
+      if (pathname === '/api/ai/test') return json(res, await testAiProvider(store.resolveAiSettings(await readBody(req))))
+      if (pathname === '/api/ai/models') return json(res, await listAiModels(store.resolveAiSettings(await readBody(req), false)))
       const match = pathname.match(/^\/api\/applications\/([\w-]+)\/attachments$/)
       if (match) return json(res, store.saveAttachment(match[1], await readBody(req, 14 * 1024 * 1024)), 201)
     }
