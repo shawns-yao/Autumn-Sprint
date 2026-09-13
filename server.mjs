@@ -103,6 +103,7 @@ const server = http.createServer(async (req, res) => {
       if (match) return json(res, store.saveAttachment(match[1], await readBody(req, 14 * 1024 * 1024)), 201)
     }
     if (req.method === 'DELETE') {
+      if (pathname === '/api/companies') return json(res, store.deleteCompany(await readBody(req)))
       const match = pathname.match(/^\/api\/(applications|notes|resources|attachments)\/([\w-]+)$/)
       if (match) {
         const id = identifier(match[2])

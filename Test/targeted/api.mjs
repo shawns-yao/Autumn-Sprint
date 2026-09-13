@@ -104,6 +104,19 @@ try {
     assert.equal((await call('/api/applications/primary')).company, saved.company)
     await call(`/api/applications/${sibling.id}`, 'GET', undefined, 404)
   })
+  await check('同公司岗位顺序可保存并批量删除公司', async () => {
+    const first = await call('/api/applications', 'POST', { ...app('volunteer-first'), company: '志愿顺序公司', title: '第一志愿' })
+    const second = await call('/api/applications', 'POST', { ...app('volunteer-second'), company: first.company, title: '第二志愿' })
+    const reordered = await call('/api/applications', 'POST', { ...legacy(first), companyOrder: [second.id, first.id] })
+    assert.equal(reordered.volunteerOrder, 1)
+    const jobs = (await call('/api/workspace')).applications.filter(item => item.company === first.company).sort((a, b) => a.volunteerOrder - b.volunteerOrder)
+    assert.deepEqual(jobs.map(item => item.id), [second.id, first.id])
+    const closed = await call('/api/applications', 'POST', { ...legacy(reordered), status: '终止', terminated: true })
+    assert.equal(closed.status, '终止')
+    const deleted = await call('/api/companies', 'DELETE', { company: first.company })
+    assert.equal(deleted.deleted, 2)
+    assert.equal((await call('/api/workspace')).applications.some(item => item.company === first.company), false)
+  })
   await check('岗位并发版本冲突不覆盖数据', async () => {
     const original = saved
     saved = await call('/api/applications', 'POST', { ...legacy(saved), city: '测试城市' })

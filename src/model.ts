@@ -9,6 +9,7 @@ export type WorkflowStage = Stage & { id: string; label: string; kind: StageKind
 export type Application = {
   id: string | number; company: string; title: string; city: string; status: Status;
   applied: string; source: string; website: string; priority: string; jd: string;
+  volunteerOrder?: number;
   jdImage?: string; resumeText?: string; evaluation?: Stage; written?: Stage;
   aiInterview?: Stage; terminated: boolean; resume: string;
   firstInterview?: Stage; secondInterview?: Stage; thirdInterview?: Stage; hrInterview?: Stage;
@@ -17,6 +18,7 @@ export type Application = {
 }
 export type Attachment = { id: string; name: string; mime: string; bytes: number; url: string }
 export type View = 'home' | 'overview' | 'applications' | 'notes' | 'documents' | 'settings'
+export const normalizedCompany = (value: string) => value.trim().toLocaleLowerCase()
 export const stageFields = [['initialScreening', '初筛'], ['evaluation', '测评'], ['written', '笔试'], ['firstInterview', '一面'], ['secondInterview', '二面'], ['thirdInterview', '三面']] as const
 const legacyStageFields = [['initialScreening', '初筛'], ['evaluation', '测评'], ['written', '笔试'], ['aiInterview', 'AI 面试'], ['firstInterview', '一面'], ['secondInterview', '二面'], ['thirdInterview', '三面'], ['hrInterview', 'HR 面']] as const
 const stageKindFor = (id: string): StageKind => id === 'initialScreening' ? 'screening' : ['evaluation', 'written'].includes(id) ? 'exam' : 'interview'
@@ -40,6 +42,25 @@ export const isClosed = (app: Application) => app.terminated || ['拒绝', '终�
 export function makeApplication(): Application {
   const workflow = stagesFromFields(stageFields)
   return { id: crypto.randomUUID(), company: '', title: '', city: '', status: '已投递', applied: localDate(), source: '官网', website: '', priority: '中', jd: '', resume: '', terminated: false, workflow, currentStageId: '' }
+}
+export const volunteerOrderOf = (app: Application) => Number.isInteger(app.volunteerOrder) && (app.volunteerOrder as number) >= 0 ? app.volunteerOrder as number : Number.MAX_SAFE_INTEGER
+export const compareVolunteers = (a: Application, b: Application) => volunteerOrderOf(a) - volunteerOrderOf(b) || (b.applied || '').localeCompare(a.applied || '') || String(a.id).localeCompare(String(b.id))
+export const isVolunteerFinished = (app: Application) => app.terminated || ['终止', '拒绝'].includes(app.status)
+export function companyApplications(apps: Application[], company: string) {
+  return apps.filter(app => normalizedCompany(app.company) === normalizedCompany(company)).sort(compareVolunteers)
+}
+export function primaryApplications(apps: Application[]) {
+  const groups = new Map<string, Application[]>()
+  for (const app of apps) {
+    const key = normalizedCompany(app.company)
+    const group = groups.get(key) || []
+    group.push(app)
+    groups.set(key, group)
+  }
+  return [...groups.values()].map(group => {
+    const ordered = group.sort(compareVolunteers)
+    return ordered.find(app => !isVolunteerFinished(app)) || ordered[ordered.length - 1]
+  }).filter((app): app is Application => Boolean(app))
 }
 export type Event = { id: string; app: Application; label: string; date: string; time: string; endTime: string; stage: Stage; done: boolean }
 export function eventsFor(apps: Application[]): Event[] {

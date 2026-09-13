@@ -7,7 +7,7 @@ import HomePage from './components/HomePage'
 import Resources from './components/Resources'
 import SettingsView from './components/SettingsView'
 import { Button, IconButton, SearchField } from './components/Shared'
-import { makeApplication, type Application, type View } from './model'
+import { companyApplications, makeApplication, normalizedCompany, type Application, type View } from './model'
 import { post, request } from './api'
 import './components/home.css'
 import './components/connected.css'
@@ -49,9 +49,9 @@ export default function App() {
     const timer = window.setInterval(() => { void refresh() }, 60000)
     return () => { clearInterval(timer); generation.current++ }
   }, [refresh])
-  const save = async (draft: Application) => {
-    const saved = await post<Application>('/api/applications', draft)
-    setApps(current => current.some(app => app.id === saved.id) ? current.map(app => app.id === saved.id ? saved : app) : [saved, ...current])
+  const save = async (draft: Application, companyOrder?: string[]) => {
+    const saved = await post<Application>('/api/applications', companyOrder === undefined ? draft : { ...draft, companyOrder })
+    setApps(current => current.some(app => String(app.id) === String(saved.id)) ? current.map(app => String(app.id) === String(saved.id) ? saved : app) : [saved, ...current])
     setSelected(saved)
     void refresh()
     return saved
@@ -60,9 +60,16 @@ export default function App() {
   const openNewApplication = (company = '', initialTab: 'basic' | 'stages' | 'interviews' | 'review' = 'stages') => { setSelected({ ...makeApplication(), company }); setSelectedTab(initialTab) }
   const deleteApplication = async (target: Application) => {
     await request(`/api/applications/${target.id}`, { method: 'DELETE', body: JSON.stringify({ revision: target.revision }) })
-    const sibling = apps.find(app => app.id !== target.id && app.company.trim().toLocaleLowerCase() === target.company.trim().toLocaleLowerCase())
-    setApps(current => current.filter(app => app.id !== target.id))
+    const persisted = apps.find(app => String(app.id) === String(target.id)) || target
+    const sibling = companyApplications(apps, persisted.company).find(app => String(app.id) !== String(target.id))
+    setApps(current => current.filter(app => String(app.id) !== String(target.id)))
     if (sibling) { setSelected(sibling); setSelectedTab('stages') } else setSelected(null)
+    void refresh()
+  }
+  const deleteCompany = async (company: string) => {
+    await request('/api/companies', { method: 'DELETE', body: JSON.stringify({ company }) })
+    setApps(current => current.filter(app => normalizedCompany(app.company) !== normalizedCompany(company)))
+    setSelected(null)
     void refresh()
   }
   const navigate = (next: View) => setView(next)
@@ -84,6 +91,6 @@ export default function App() {
         {view === 'settings' && <SettingsView onSaved={refresh} />}
       </div>
     </main>
-    {selected && <Suspense fallback={<div className="dialog-loading" role="status">正在打开岗位详情…</div>}><ApplicationDialog key={selected.id} app={selected} apps={apps} initialTab={selectedTab} onSelectJob={setSelected} onCreateJob={openNewApplication} onDelete={deleteApplication} onClose={() => { setSelected(null); void refresh() }} onSave={save} /></Suspense>}
+    {selected && <Suspense fallback={<div className="dialog-loading" role="status">正在打开岗位详情…</div>}><ApplicationDialog key={selected.id} app={selected} apps={apps} initialTab={selectedTab} onSelectJob={setSelected} onCreateJob={openNewApplication} onDelete={deleteApplication} onDeleteCompany={deleteCompany} onClose={() => { setSelected(null); void refresh() }} onSave={save} /></Suspense>}
   </div>
 }

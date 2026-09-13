@@ -1,19 +1,18 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { ArrowDown, ArrowUp, CalendarDays, ExternalLink, Eye, FileText, MapPin, Pencil, Plus, Save, Trash2, X } from 'lucide-react'
-import { emptyStage, normalizedStatus, safeUrl, stageFields, stageKinds, stageResultOptions, withWorkflow, workflowFor, type Application, type Stage, type StageKey, type StageKind, type WorkflowStage } from '../model'
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { ArrowDown, ArrowUp, CalendarDays, ExternalLink, Eye, FileText, GripVertical, MapPin, Pencil, Plus, Save, Trash2, X } from 'lucide-react'
+import { companyApplications, compareVolunteers, emptyStage, normalizedCompany, normalizedStatus, safeUrl, stageFields, stageKinds, stageResultOptions, withWorkflow, workflowFor, type Application, type Stage, type StageKey, type StageKind, type WorkflowStage } from '../model'
 import { Button, CompanyMark, IconButton } from './Shared'
 import { ApplicationProgress, ApplicationState } from './ApplicationProgress'
 import ReviewEditor from './ReviewEditor'
-import StageDetails from './StageDetails'
 import StageReview from './StageReview'
 import './applications.css'
 
 const tabs = [['basic', '基本信息'], ['stages', '招聘流程'], ['interviews', '面试记录'], ['review', '复盘']] as const
 type Tab = typeof tabs[number][0]
-type Props = { app: Application; apps: Application[]; initialTab?: Tab; onSelectJob: (app: Application) => void; onCreateJob: (company?: string, initialTab?: Tab) => void; onDelete: (app: Application) => Promise<void>; onClose: () => void; onSave: (app: Application) => Promise<Application> }
-type DiscardAction = { kind: 'close' } | { kind: 'select'; app: Application } | { kind: 'create'; company: string; initialTab: Tab } | { kind: 'delete'; app: Application }
+type Props = { app: Application; apps: Application[]; initialTab?: Tab; onSelectJob: (app: Application) => void; onCreateJob: (company?: string, initialTab?: Tab) => void; onDelete: (app: Application) => Promise<void>; onDeleteCompany: (company: string) => Promise<void>; onClose: () => void; onSave: (app: Application, companyOrder?: string[]) => Promise<Application> }
+type DiscardAction = { kind: 'close' } | { kind: 'select'; app: Application } | { kind: 'create'; company: string; initialTab: Tab } | { kind: 'delete'; app: Application } | { kind: 'delete-company'; company: string }
 
-export default function ApplicationDialog({ app, apps, initialTab = 'basic', onSelectJob, onCreateJob, onDelete, onClose, onSave }: Props) {
+export default function ApplicationDialog({ app, apps, initialTab = 'basic', onSelectJob, onCreateJob, onDelete, onDeleteCompany, onClose, onSave }: Props) {
   const dialog = useRef<HTMLDialogElement>(null)
   const [draft, setDraft] = useState<Application>(() => ({ ...app, workflow: workflowFor(app) }))
   const [baseline, setBaseline] = useState(() => JSON.stringify({ ...app, workflow: workflowFor(app) }))
@@ -29,7 +28,37 @@ export default function ApplicationDialog({ app, apps, initialTab = 'basic', onS
   const [insertAfter, setInsertAfter] = useState('')
   const [customStageName, setCustomStageName] = useState('')
   const stageTemplateRef = useRef<HTMLSelectElement>(null)
-  const dirty = JSON.stringify(draft) !== baseline
+  const initialJobs = companyApplications(apps, app.company)
+  if (!initialJobs.some(job => String(job.id) === String(app.id))) initialJobs.push(app)
+  const initialOrder = initialJobs.sort(compareVolunteers).map(job => String(job.id))
+  const [jobOrder, setJobOrder] = useState<string[]>(() => initialOrder)
+  const baselineJobOrder = useRef(initialOrder)
+  const previousCompany = useRef(normalizedCompany(app.company))
+  const companyKey = normalizedCompany(draft.company)
+  const companyJobs = useMemo(() => {
+    const jobs = companyApplications(apps, draft.company).map(job => String(job.id) === String(draft.id) ? draft : job)
+    if (!jobs.some(job => String(job.id) === String(draft.id))) jobs.push(draft)
+    return jobs
+  }, [apps, draft])
+  useEffect(() => {
+    const ids = companyJobs.map(job => String(job.id))
+    setJobOrder(current => {
+      const known = new Set(ids)
+      const next = [...current.filter(id => known.has(id)), ...ids.filter(id => !current.includes(id))]
+      return next.length === current.length && next.every((id, index) => id === current[index]) ? current : next
+    })
+    if (previousCompany.current !== companyKey) {
+      baselineJobOrder.current = ids
+      previousCompany.current = companyKey
+    }
+  }, [companyJobs, companyKey])
+  const orderedCompanyJobs = useMemo(() => {
+    const byId = new Map(companyJobs.map(job => [String(job.id), job]))
+    const ordered = jobOrder.map(id => byId.get(id)).filter((job): job is Application => Boolean(job))
+    return [...ordered, ...companyJobs.filter(job => !jobOrder.includes(String(job.id))).sort(compareVolunteers)]
+  }, [companyJobs, jobOrder])
+  const orderDirty = baselineJobOrder.current.length !== jobOrder.length || baselineJobOrder.current.some((id, index) => id !== jobOrder[index])
+  const dirty = JSON.stringify(draft) !== baseline || orderDirty
   const patch = (value: Partial<Application>) => { setDraft(current => ({ ...current, ...value })); setMessage(''); setError('') }
   const patchStage = (key: StageKey, value: Partial<Stage>) => {
     setDraft(current => {
@@ -54,9 +83,21 @@ export default function ApplicationDialog({ app, apps, initialTab = 'basic', onS
     try { await onDelete(target) }
     catch (error) { setError(error instanceof Error ? error.message : '删除失败，请重试。'); setSaving(false) }
   }
+  const deleteCompany = async (company = app.company) => {
+    if (!draft.updatedAt) { onClose(); return }
+    if (!window.confirm(`删除公司“${company}”？该公司的全部岗位都会删除，历史记录仍保留。`)) return
+    setSaving(true); setError(''); setMessage('')
+    try { await onDeleteCompany(company) }
+    catch (error) { setError(error instanceof Error ? error.message : '删除公司失败，请重试。'); setSaving(false) }
+  }
   const requestDelete = () => {
     if (dirty) { setDiscardAction({ kind: 'delete', app: draft }); setDiscard(true) }
     else void deleteJob()
+  }
+  const requestDeleteCompany = () => {
+    const company = app.company.trim()
+    if (dirty) { setDiscardAction({ kind: 'delete-company', company }); setDiscard(true) }
+    else void deleteCompany(company)
   }
   const abandonChanges = () => {
     const action = discardAction
@@ -64,13 +105,23 @@ export default function ApplicationDialog({ app, apps, initialTab = 'basic', onS
     if (!action || action.kind === 'close') onClose()
     else if (action.kind === 'select') onSelectJob(action.app)
     else if (action.kind === 'create') onCreateJob(action.company, action.initialTab)
+    else if (action.kind === 'delete-company') void deleteCompany(action.company)
     else void deleteJob(action.app)
   }
   const website = safeUrl(draft.website)
-  const companyKey = draft.company.trim().toLocaleLowerCase()
-  const companyJobs = apps.filter(job => job.company.trim().toLocaleLowerCase() === companyKey).map(job => job.id === draft.id ? draft : job)
-  if (!companyJobs.some(job => job.id === draft.id)) companyJobs.push(draft)
-  const sidebar = <JobSidebar jobs={companyJobs} currentId={draft.id} company={draft.company} onCompanyChange={company => patch({ company })} onSelect={selectJob} onCreate={createJob} onDelete={requestDelete} canDelete={Boolean(draft.updatedAt)} disabled={saving} />
+  const moveJob = (sourceId: string | number, targetId: string | number, before: boolean) => {
+    setJobOrder(current => {
+      const source = String(sourceId); const target = String(targetId)
+      const sourceIndex = current.indexOf(source); const targetIndex = current.indexOf(target)
+      if (sourceIndex < 0 || targetIndex < 0 || source === target) return current
+      const next = [...current]; next.splice(sourceIndex, 1)
+      const insertAt = next.indexOf(target) + (before ? 0 : 1)
+      next.splice(insertAt, 0, source)
+      return next
+    })
+    setMessage(''); setError('')
+  }
+  const sidebar = <JobSidebar jobs={orderedCompanyJobs} currentId={draft.id} company={draft.company} onCompanyChange={company => patch({ company })} onSelect={selectJob} onCreate={createJob} onMove={moveJob} onDelete={requestDelete} canDelete={Boolean(draft.updatedAt)} disabled={saving} />
 
   useEffect(() => {
     const element = dialog.current
@@ -88,8 +139,8 @@ export default function ApplicationDialog({ app, apps, initialTab = 'basic', onS
     if (draft.website && !safeUrl(draft.website)) { setError('岗位链接需要使用有效的 http 或 https 地址。'); setTab('basic'); return }
     setSaving(true); setError(''); setMessage('')
     try {
-      const saved = await onSave(draft)
-      setDraft(saved); setBaseline(JSON.stringify(saved)); setMessage('已保存'); setEditingWorkflow(false); setDiscardAction(null)
+      const saved = await onSave(draft, orderDirty ? orderedCompanyJobs.map(job => String(job.id)) : undefined)
+      setDraft(saved); setBaseline(JSON.stringify(saved)); baselineJobOrder.current = orderedCompanyJobs.map(job => String(job.id)); setMessage('已保存'); setEditingWorkflow(false); setDiscardAction(null)
     } catch (error) {
       setError(error instanceof Error ? error.message : '保存失败，请重试。')
     } finally { setSaving(false) }
@@ -184,7 +235,7 @@ export default function ApplicationDialog({ app, apps, initialTab = 'basic', onS
               <div id="job-workflow-details">
                 {selectedWorkflowStage ? editingWorkflow
                   ? <StageForm key={selectedWorkflowStage.id} stage={selectedWorkflowStage} index={(draft.workflow || []).findIndex(item => item.id === selectedWorkflowStage.id)} total={(draft.workflow || []).length} onMetaChange={value => updateStageMeta(selectedWorkflowStage.id, value)} onMove={offset => moveStage(selectedWorkflowStage.id, offset)} onRemove={() => removeStage(selectedWorkflowStage.id)} onChange={value => patchStage(selectedWorkflowStage.id, value)} showRecord={false} />
-                  : <StageDetails key={selectedWorkflowStage.id} stage={selectedWorkflowStage} />
+                  : null
                   : <p className="job-muted-empty">暂无招聘阶段</p>}
               </div>
               {!editingWorkflow && <section className="job-jd-panel" aria-labelledby="job-jd-title"><div className="job-section-title"><h4 id="job-jd-title"><FileText size={16} aria-hidden="true" />岗位 JD</h4></div><textarea className="job-jd" aria-label="岗位 JD" value={draft.jd} onChange={event => patch({ jd: event.target.value })} placeholder="暂无岗位描述" /></section>}
@@ -194,7 +245,7 @@ export default function ApplicationDialog({ app, apps, initialTab = 'basic', onS
         {tab === 'review' && <div className="job-tab-layout">{sidebar}<section className="job-notes-tab job-review-tab">{reviewStage ? <StageReview key={reviewStage.id} stage={reviewStage} stages={workflowStages} onSelect={setStageKey} onChange={value => patchStage(reviewStage.id, value)} /> : <p className="job-muted-empty">招聘流程中暂无可复盘阶段</p>}</section></div>}
       </div>
       <footer className="job-dialog-footer">
-        {discard ? <><span role="alert">存在未保存的修改，确定放弃？</span><Button onClick={() => { setDiscard(false); setDiscardAction(null) }}>继续编辑</Button><Button variant="danger" onClick={abandonChanges}>{discardAction?.kind === 'select' ? '切换岗位' : discardAction?.kind === 'create' ? '新增岗位' : discardAction?.kind === 'delete' ? '放弃修改并删除' : '放弃更改'}</Button></> : <><span role={error ? 'alert' : 'status'} className={error ? 'job-save-error' : 'job-save-status'}>{error || message || (dirty ? '有未保存的修改' : '')}</span><Button disabled={saving} onClick={requestClose}>关闭</Button><Button type="submit" variant="primary" icon={Save} disabled={saving || !dirty}>{saving ? '保存中…' : '保存更改'}</Button></>}
+        {discard ? <><span role="alert">存在未保存的修改，确定放弃？</span><Button onClick={() => { setDiscard(false); setDiscardAction(null) }}>继续编辑</Button><Button variant="danger" onClick={abandonChanges}>{discardAction?.kind === 'select' ? '切换岗位' : discardAction?.kind === 'create' ? '新增岗位' : discardAction?.kind === 'delete' ? '放弃修改并删除' : discardAction?.kind === 'delete-company' ? '放弃修改并删除公司' : '放弃更改'}</Button></> : <><Button icon={Trash2} variant="danger" disabled={saving || !draft.updatedAt} onClick={requestDeleteCompany}>删除公司</Button><span role={error ? 'alert' : 'status'} className={error ? 'job-save-error' : 'job-save-status'}>{error || message || (dirty ? '有未保存的修改' : '')}</span><Button type="submit" variant="primary" icon={Save} disabled={saving || !dirty}>{saving ? '保存中…' : '保存更改'}</Button></>}
       </footer>
     </form>
   </dialog>
@@ -233,16 +284,32 @@ function StageRecordField({ title, value, onChange }: { title: string; value: St
   return <div className="job-field-wide job-stage-record"><div className="stage-record-label">{title}</div><ReviewEditor value={value} onChange={onChange} label={title} compact /></div>
 }
 
-function JobSidebar({ jobs, currentId, company, onCompanyChange, onSelect, onCreate, onDelete, canDelete, disabled }: { jobs: Application[]; currentId: string | number; company: string; onCompanyChange: (value: string) => void; onSelect: (app: Application) => void; onCreate: () => void; onDelete: () => void; canDelete: boolean; disabled: boolean }) {
+function JobSidebar({ jobs, currentId, company, onCompanyChange, onSelect, onCreate, onMove, onDelete, canDelete, disabled }: { jobs: Application[]; currentId: string | number; company: string; onCompanyChange: (value: string) => void; onSelect: (app: Application) => void; onCreate: () => void; onMove: (sourceId: string | number, targetId: string | number, before: boolean) => void; onDelete: () => void; canDelete: boolean; disabled: boolean }) {
+  const [draggingId, setDraggingId] = useState<string | null>(null)
+  const [dropTarget, setDropTarget] = useState<{ id: string; before: boolean } | null>(null)
+  const finishDrag = () => { setDraggingId(null); setDropTarget(null) }
   return <aside className="job-workflow-sidebar" aria-label="同公司岗位">
     <header className="job-workflow-sidebar-heading"><div><span>投递岗位</span><strong>{jobs.length}</strong></div><Button icon={Plus} size="small" disabled={disabled} onClick={onCreate}>新增岗位</Button></header>
     {!canDelete && <label className="job-workflow-sidebar-company">公司名称<input value={company} onChange={event => onCompanyChange(event.target.value)} placeholder="填写公司名称" disabled={disabled} /></label>}
     <div className="job-workflow-job-list">
-      {jobs.map(job => <button type="button" className={`job-workflow-job ${job.id === currentId ? 'current' : ''}`} key={job.id} aria-current={job.id === currentId ? 'page' : undefined} onClick={() => onSelect(job)} disabled={disabled}>
-        <span className="job-workflow-job-top"><strong>{job.title || '岗位名称待填写'}</strong><ApplicationState app={job} /></span>
-        <small>{[job.city, job.applied].filter(Boolean).join(' · ') || '岗位信息待补充'}</small>
-      </button>)}
+      {jobs.map((job, index) => <div className={`job-workflow-job-row ${draggingId === String(job.id) ? 'dragging' : ''} ${dropTarget?.id === String(job.id) ? dropTarget.before ? 'drop-before' : 'drop-after' : ''}`} key={job.id}
+        onDragOver={event => { if (!draggingId || draggingId === String(job.id)) return; event.preventDefault(); const rect = event.currentTarget.getBoundingClientRect(); setDropTarget({ id: String(job.id), before: event.clientY < rect.top + rect.height / 2 }) }}
+        onDrop={event => { event.preventDefault(); const sourceId = event.dataTransfer.getData('text/plain') || draggingId; if (sourceId) onMove(sourceId, job.id, dropTarget?.id === String(job.id) ? dropTarget.before : event.clientY < event.currentTarget.getBoundingClientRect().top + event.currentTarget.getBoundingClientRect().height / 2); finishDrag() }}
+        onDragEnd={finishDrag}>
+        <button type="button" className={`job-workflow-job ${job.id === currentId ? 'current' : ''}`} aria-current={job.id === currentId ? 'page' : undefined} onClick={() => onSelect(job)} disabled={disabled}>
+          <span className="job-workflow-job-top"><strong>{job.title || '岗位名称待填写'}</strong></span>
+          <small>{[job.city, job.applied].filter(Boolean).join(' · ') || '岗位信息待补充'}</small>
+        </button>
+        <div className="job-workflow-job-side">
+          <ApplicationState app={job} />
+          {job.id === currentId && <Button icon={Trash2} variant="danger" size="small" className="job-workflow-job-delete" disabled={disabled || !canDelete} onClick={event => { event.stopPropagation(); onDelete() }}>删除当前岗位</Button>}
+          <span className="job-workflow-drag-handle" draggable={!disabled} role="button" tabIndex={disabled ? -1 : 0} aria-label={`拖动调整${job.title || '当前岗位'}的志愿顺序`} title="拖动调整志愿顺序"
+            onDragStart={event => { event.stopPropagation(); setDraggingId(String(job.id)); event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', String(job.id)) }}
+            onKeyDown={event => { if (!['ArrowUp', 'ArrowDown'].includes(event.key)) return; const target = jobs[index + (event.key === 'ArrowUp' ? -1 : 1)]; if (!target) return; event.preventDefault(); onMove(job.id, target.id, event.key === 'ArrowUp') }}>
+            <GripVertical size={16} aria-hidden="true" />
+          </span>
+        </div>
+      </div>)}
     </div>
-    <Button icon={Trash2} variant="danger" size="small" className="job-workflow-delete" disabled={disabled || !canDelete} onClick={onDelete}>删除当前岗位</Button>
   </aside>
 }

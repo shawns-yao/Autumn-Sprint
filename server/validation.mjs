@@ -32,6 +32,12 @@ export function stringArray(value, field, max = 100) {
   requireValue(Array.isArray(value) && value.length <= max, `${field}不是有效列表`)
   return [...new Set(value.map(item => text(item, field, 150, true)))]
 }
+export function applicationOrder(value) {
+  requireValue(Array.isArray(value) && value.length <= 500, '志愿顺序不是有效列表')
+  const ids = value.map(identifier)
+  requireValue(new Set(ids).size === ids.length, '志愿顺序存在重复岗位')
+  return ids
+}
 export function application(input) {
   object(input)
   const result = {
@@ -40,7 +46,7 @@ export function application(input) {
     status: input.status === '技术面' && input.workflow === undefined ? '一面' : input.status, applied: date(input.applied, '投递日期'),
     source: text(input.source, '来源', 100), website: url(input.website, '岗位网址'), priority: input.priority || '中',
     jd: text(input.jd, '岗位描述', 500000, false, true), resume: text(input.resume, '简历名称', 300),
-    revision: input.revision,
+    revision: input.revision, volunteerOrder: input.volunteerOrder === undefined ? undefined : integer(input.volunteerOrder, '志愿顺序', 0, 1000000),
   }
   requireValue(['高', '中', '低'].includes(result.priority), '无效的优先级')
   const custom = input.workflow !== undefined

@@ -1,6 +1,6 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { CalendarDays, LayoutGrid, List, MapPin } from 'lucide-react'
-import { lifecycle, nextEvent, normalizedStatus, relativeDate, stageFields, timeRange, workflowFor, type Application } from '../model'
+import { lifecycle, nextEvent, normalizedStatus, primaryApplications, relativeDate, stageFields, timeRange, workflowFor, type Application } from '../model'
 import { Button, CompanyMark, Empty, Heading, IconButton, Pagination, SearchField } from './Shared'
 import { ApplicationProgress, ApplicationState } from './ApplicationProgress'
 import './applications.css'
@@ -20,7 +20,8 @@ export default function Applications({ apps, query, setQuery, selectedId, onOpen
   const [page, setPage] = useState(1)
   const [size, setSize] = useState(9)
   const [mode, setMode] = useState<'list' | 'grid'>('list')
-  const filtered = useMemo(() => apps.filter(app =>
+  const isRefined = Boolean(query.trim() || status || stage || city)
+  const filtered = useMemo(() => (isRefined ? apps : primaryApplications(apps)).filter(app =>
     `${app.company} ${app.title} ${app.source} ${app.status}`.toLowerCase().includes(query.trim().toLowerCase())
     && (!status || lifecycle(app) === status)
     && (!stage || normalizedStatus(app) === stage)
@@ -28,7 +29,7 @@ export default function Applications({ apps, query, setQuery, selectedId, onOpen
   ).sort((a, b) => {
     if (!a.applied || !b.applied) return Number(!a.applied) - Number(!b.applied)
     return sort === 'oldest' ? a.applied.localeCompare(b.applied) : b.applied.localeCompare(a.applied)
-  }), [apps, query, status, stage, city, sort])
+  }), [apps, query, status, stage, city, sort, isRefined])
   const safePage = Math.min(page, Math.max(1, Math.ceil(filtered.length / size)))
   const visible = filtered.slice((safePage - 1) * size, safePage * size)
   const change = (setter: (value: string) => void, value: string) => { setter(value); setPage(1) }
@@ -42,7 +43,7 @@ export default function Applications({ apps, query, setQuery, selectedId, onOpen
       <select aria-label="招聘阶段筛选" value={stage} onChange={event => change(setStage, event.target.value)}><option value="">全部阶段</option>{[...new Set([...stageFields.map(([, label]) => label), ...apps.flatMap(app => workflowFor(app).map(stage => stage.label))])].map(value => <option key={value}>{value}</option>)}</select>
       <select aria-label="城市筛选" value={city} onChange={event => change(setCity, event.target.value)}><option value="">全部城市</option>{[...new Set(apps.flatMap(citiesFor))].sort().map(value => <option key={value}>{value}</option>)}</select>
       <select aria-label="岗位排序" value={sort} onChange={event => change(setSort, event.target.value)}><option value="newest">投递时间：最新</option><option value="oldest">投递时间：最早</option></select>
-      <span className="jobs-count">共 {filtered.length} 个岗位</span>
+      <span className="jobs-count">共 {filtered.length} {isRefined ? '个岗位' : '家公司'}</span>
       <div className="jobs-view-switch" role="group" aria-label="岗位展示方式">{([['list', List, '列表视图'], ['grid', LayoutGrid, '网格视图']] as const).map(([value, Icon, label]) => <IconButton key={value} label={label} icon={Icon} variant={mode === value ? 'selected' : 'secondary'} aria-pressed={mode === value} onClick={() => setMode(value)} />)}</div>
     </div>
     {mode === 'list' ? <div className="jobs-table-scroll"><table className="jobs-table">

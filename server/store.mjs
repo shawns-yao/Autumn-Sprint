@@ -1,5 +1,5 @@
 import { randomUUID, createHash } from 'node:crypto'
-import { application, stageMap, stageKind, object, text, url, identifier, integer, stringArray, requireValue, HttpError } from './validation.mjs'
+import { application, applicationOrder, stageMap, stageKind, object, text, url, identifier, integer, stringArray, requireValue, HttpError } from './validation.mjs'
 
 const emptyStage = () => ({ status: '未开始', date: '', time: '', endTime: '', location: '', link: '', requirements: '', notes: '' })
 const storageName = id => Object.hasOwn(stageMap, id) ? stageMap[id] : `node-${id}`
@@ -44,6 +44,7 @@ export function createStore(db) {
         id: row.id, company: row.company_name, title: row.title || '', city: row.city || '', status: row.status === '技术面' && !metadata ? '一面' : row.status,
         applied: row.applied_date || '', source: row.source || '', website: row.official_url || '', priority: row.priority || '中',
         jd: row.jd_text || '', resume: row.resume_name || '', terminated: Boolean(row.terminated), revision: row.revision, updatedAt: row.updated_at,
+        volunteerOrder: Number.isInteger(row.volunteer_order) ? row.volunteer_order : undefined,
         ...legacy, workflow, currentStageId,
         attachments: (fileGroups.get(row.id) || []).map(({ application_id, ...file }) => ({ ...file, url: `/api/attachments/${file.id}` })),
       }
@@ -54,16 +55,33 @@ export function createStore(db) {
   function getApplication(id) { return readApplications({ id }).items[0] }
   const saveApplication = db.transaction(input => {
     const value = application(input)
+    const requestedOrder = input.companyOrder === undefined ? null : applicationOrder(input.companyOrder)
     const previous = db.prepare('SELECT * FROM applications WHERE id = ?').get(value.id)
     requireValue(!previous?.deleted_at, '岗位已删除，请刷新后重试', 409)
     requireValue(!previous || value.revision === previous.revision, '岗位已被其他页面更新，请重新打开后编辑', 409)
     requireValue(!previous?.workflow_json || value.workflow, '岗位使用自定义流程，请重新加载后编辑', 409)
     const companyId = db.prepare('INSERT INTO companies(name) VALUES (?) ON CONFLICT(name) DO UPDATE SET name=excluded.name RETURNING id').get(value.company).id
-    db.prepare(`INSERT INTO applications(id,company_id,title,city,status,applied_date,source,official_url,priority,jd_text,terminated,resume_name,updated_at,revision)
-      VALUES (@id,@companyId,@title,@city,@status,@applied,@source,@website,@priority,@jd,@terminated,@resume,@updatedAt,1)
+    const nextOrder = db.prepare('SELECT COALESCE(MAX(volunteer_order), -1) + 1 next FROM applications WHERE company_id=? AND deleted_at IS NULL').get(companyId).next
+    const requestedPosition = requestedOrder?.indexOf(value.id) ?? -1
+    const volunteerOrder = requestedPosition >= 0 ? requestedPosition : previous?.company_id === companyId ? value.volunteerOrder ?? previous.volunteer_order ?? nextOrder : nextOrder
+    db.prepare(`INSERT INTO applications(id,company_id,title,city,status,applied_date,source,official_url,priority,jd_text,terminated,resume_name,updated_at,revision,volunteer_order)
+      VALUES (@id,@companyId,@title,@city,@status,@applied,@source,@website,@priority,@jd,@terminated,@resume,@updatedAt,1,@volunteerOrder)
       ON CONFLICT(id) DO UPDATE SET company_id=excluded.company_id,title=excluded.title,city=excluded.city,status=excluded.status,
       applied_date=excluded.applied_date,source=excluded.source,official_url=excluded.official_url,priority=excluded.priority,jd_text=excluded.jd_text,
-      terminated=excluded.terminated,resume_name=excluded.resume_name,updated_at=excluded.updated_at,revision=applications.revision+1`).run({ ...value, companyId, terminated: Number(value.terminated), updatedAt: now() })
+      terminated=excluded.terminated,resume_name=excluded.resume_name,updated_at=excluded.updated_at,revision=applications.revision+1,volunteer_order=excluded.volunteer_order`).run({ ...value, companyId, terminated: Number(value.terminated), updatedAt: now(), volunteerOrder })
+    if (requestedOrder) {
+      const rows = db.prepare('SELECT a.id FROM applications a WHERE a.company_id=? AND a.deleted_at IS NULL').all(companyId)
+      const ids = new Set(rows.map(row => row.id))
+      requireValue(requestedOrder.length === ids.size && requestedOrder.every(id => ids.has(id)), '志愿顺序与公司岗位不一致')
+      const updatedAt = now()
+      const orderJson = JSON.stringify(requestedOrder)
+      db.prepare(`UPDATE applications
+        SET volunteer_order=(SELECT CAST(key AS INTEGER) FROM json_each(@orderJson) WHERE value=applications.id),
+            updated_at=CASE WHEN id=@currentId THEN updated_at ELSE @updatedAt END,
+            revision=CASE WHEN id=@currentId THEN revision ELSE revision+1 END
+        WHERE company_id=@companyId AND deleted_at IS NULL
+          AND id IN (SELECT value FROM json_each(@orderJson))`).run({ orderJson, currentId: value.id, updatedAt, companyId })
+    }
     const stages = value.workflow ? value.workflow.map(node => ({ ...node, name: storageName(node.id) })) : Object.entries(stageMap).filter(([key]) => key !== 'initialScreening' || Boolean(input[key] && (Object.entries(input[key]).some(([field, item]) => field !== 'status' && item) || input[key].status !== '未开始'))).map(([key, name]) => ({ ...value[key], name }))
     db.prepare(`INSERT INTO application_stages(application_id,stage_name,status,date,time,end_time,location,link,requirements,notes)
       SELECT @id,json_extract(value,'$.name'),json_extract(value,'$.status'),json_extract(value,'$.date'),json_extract(value,'$.time'),
@@ -84,6 +102,21 @@ export function createStore(db) {
     requireValue(result.changes === 1, '岗位已被修改或删除，请刷新后重试', 409)
     db.prepare('INSERT INTO application_events(application_id,event_type,payload_json,created_at) VALUES (?,?,?,?)').run(id, 'deleted', JSON.stringify({ id, revision }), deletedAt)
   }
+  const deleteCompany = db.transaction(input => {
+    object(input)
+    const company = text(input.company, '公司', 200, true)
+    const ids = db.prepare('SELECT a.id FROM applications a JOIN companies c ON c.id=a.company_id WHERE c.name=? AND a.deleted_at IS NULL').all(company).map(row => row.id)
+    requireValue(ids.length > 0, '公司不存在或已删除', 404)
+    const deletedAt = now()
+    const idJson = JSON.stringify(ids)
+    db.prepare(`INSERT INTO application_events(application_id,event_type,payload_json,created_at)
+      SELECT value, 'deleted', json_object('id', value, 'revision', (SELECT revision FROM applications WHERE id=value), 'company', @company), @deletedAt
+      FROM json_each(@idJson)`).run({ idJson, company, deletedAt })
+    const result = db.prepare(`UPDATE applications SET deleted_at=@deletedAt,updated_at=@deletedAt,revision=revision+1
+      WHERE id IN (SELECT value FROM json_each(@idJson)) AND deleted_at IS NULL`).run({ idJson, deletedAt })
+    requireValue(result.changes === ids.length, '公司岗位已被修改或删除，请刷新后重试', 409)
+    return { ok: true, company, deleted: result.changes }
+  })
   function readNotes() {
     const rows = db.prepare('SELECT * FROM notes WHERE deleted_at IS NULL ORDER BY updated_at DESC,id').all()
     const links = Map.groupBy(db.prepare('SELECT * FROM note_applications').all(), item => item.note_id)
@@ -260,5 +293,5 @@ export function createStore(db) {
   function deleteAttachment(id) {
     requireValue(db.prepare('UPDATE stored_attachments SET deleted_at=? WHERE id=? AND deleted_at IS NULL').run(now(), id).changes === 1, '附件不存在', 404)
   }
-  return { readApplications, getApplication, saveApplication, deleteApplication, readNotes, saveNote, deleteNote, importLegacy, readResources, saveResource, deleteResource, settings, saveSettings, aiSettings, saveAiSettings, resolveAiSettings, reminders, saveAttachment, attachment, deleteAttachment }
+  return { readApplications, getApplication, saveApplication, deleteApplication, deleteCompany, readNotes, saveNote, deleteNote, importLegacy, readResources, saveResource, deleteResource, settings, saveSettings, aiSettings, saveAiSettings, resolveAiSettings, reminders, saveAttachment, attachment, deleteAttachment }
 }

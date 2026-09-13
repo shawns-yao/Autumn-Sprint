@@ -24,7 +24,7 @@ export function openDatabase(filename) {
         title TEXT, city TEXT, status TEXT NOT NULL, applied_date TEXT, source TEXT, official_url TEXT,
         priority TEXT, jd_text TEXT, terminated INTEGER NOT NULL DEFAULT 0, resume_name TEXT,
         import_batch_id INTEGER REFERENCES import_batches(id) ON DELETE SET NULL,
-        deleted_at TEXT,
+        deleted_at TEXT, volunteer_order INTEGER NOT NULL DEFAULT 0,
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
       );
       CREATE TABLE IF NOT EXISTS application_stages (
@@ -80,10 +80,32 @@ export function openDatabase(filename) {
     if (!db.prepare('PRAGMA table_info(applications)').all().some(column => column.name === 'deleted_at')) {
       db.exec('ALTER TABLE applications ADD COLUMN deleted_at TEXT')
     }
+    const addedVolunteerOrder = !db.prepare('PRAGMA table_info(applications)').all().some(column => column.name === 'volunteer_order')
+    if (addedVolunteerOrder) {
+      db.exec('ALTER TABLE applications ADD COLUMN volunteer_order INTEGER NOT NULL DEFAULT 0')
+    }
     if (!db.prepare('PRAGMA table_info(application_stages)').all().some(column => column.name === 'end_time')) {
       db.exec('ALTER TABLE application_stages ADD COLUMN end_time TEXT')
     }
     db.prepare('INSERT OR IGNORE INTO schema_migrations VALUES (2, ?)').run(new Date().toISOString())
+    db.exec('CREATE INDEX IF NOT EXISTS idx_applications_company_order ON applications(company_id, volunteer_order)')
+    if (addedVolunteerOrder || !db.prepare('SELECT 1 FROM schema_migrations WHERE version=3').get()) {
+      const nullOrderCount = db.prepare('SELECT count(*) count FROM applications WHERE deleted_at IS NULL AND volunteer_order IS NULL').get().count
+      const orderedCount = db.prepare('SELECT count(*) count FROM applications WHERE deleted_at IS NULL AND volunteer_order IS NOT NULL').get().count
+      if (addedVolunteerOrder || (nullOrderCount > 0 && orderedCount === 0)) {
+        db.exec(`WITH ranked AS (
+          SELECT id, ROW_NUMBER() OVER (
+            PARTITION BY company_id ORDER BY coalesce(applied_date, '') DESC, id
+          ) - 1 AS volunteer_order
+          FROM applications WHERE deleted_at IS NULL
+        )
+        UPDATE applications SET volunteer_order=(SELECT volunteer_order FROM ranked WHERE ranked.id=applications.id)
+        WHERE id IN (SELECT id FROM ranked)`)
+      } else if (nullOrderCount > 0) {
+        db.exec('UPDATE applications SET volunteer_order=0 WHERE deleted_at IS NULL AND volunteer_order IS NULL')
+      }
+      db.prepare('INSERT OR IGNORE INTO schema_migrations VALUES (3, ?)').run(new Date().toISOString())
+    }
     if (!db.prepare('SELECT 1 FROM schema_migrations WHERE version=1').get()) {
       db.prepare('INSERT OR IGNORE INTO resource_links(id,name,url,note,updated_at) VALUES (?,?,?,?,?)').run('campus-wiki', '校招投递文档', 'https://campus.sma-wiki.cn/campus/campus_recruit.html?channel=sqtz_20', '', new Date().toISOString())
       db.prepare('INSERT INTO schema_migrations VALUES (1, ?)').run(new Date().toISOString())
