@@ -158,7 +158,7 @@ export default function ApplicationDialog({ app, apps, initialTab = 'basic', onS
     const template = stageFields.find(([key]) => key === stageTemplate)
     const name = template?.[1] || customStageName.trim()
     if (!name) { setError('请填写自定义阶段名称。'); return }
-    if (['建立档案', '已投递', '投递', 'Offer', '拒绝', '终止'].includes(name)) { setError('投递是默认起点，请填写实际的招聘阶段名称。'); return }
+    if (['建立档案', '已投递', '投递', 'Offer', '拒绝', '终止'].includes(name)) { setError('初筛是默认起点，请填写实际的招聘阶段名称。'); return }
     const workflow = draft.workflow || []
     let label: string = name; let suffix = 2
     while (workflow.some(stage => stage.label === label)) {
@@ -166,7 +166,7 @@ export default function ApplicationDialog({ app, apps, initialTab = 'basic', onS
       label = `${name.slice(0, 80 - ending.length)}${ending}`
     }
     const stage = { ...emptyStage(), id, label, kind: stageTemplate === 'initialScreening' ? 'screening' : ['evaluation', 'written'].includes(stageTemplate) ? 'exam' : template ? 'interview' : 'other' as StageKind }
-    const index = insertAfter ? workflow.findIndex(item => item.id === insertAfter) + 1 : 0
+    const index = insertAfter ? workflow.findIndex(item => item.id === insertAfter) + 1 : Math.min(1, workflow.length)
     const nextWorkflow = [...workflow.slice(0, index), stage, ...workflow.slice(index)]
     setDraft(current => ({ ...current, workflow: nextWorkflow }))
     setStageKey(id); setInsertAfter(id); setCustomStageName(''); setTab('stages'); setMessage(''); setError('')
@@ -230,7 +230,7 @@ export default function ApplicationDialog({ app, apps, initialTab = 'basic', onS
               {editingWorkflow && <div className="job-stage-add">
                 <label>新增阶段<select ref={stageTemplateRef} aria-label="新增阶段类型" value={stageTemplate} onChange={event => setStageTemplate(event.target.value)}>{stageFields.map(([id, label]) => <option value={id} key={id}>{label}</option>)}<option value="custom">自定义阶段</option></select></label>
                 {stageTemplate === 'custom' && <label>阶段名称<input aria-label="自定义阶段名称" maxLength={80} value={customStageName} onChange={event => setCustomStageName(event.target.value)} /></label>}
-                <label>插入位置<select aria-label="阶段插入位置" value={insertAfter} onChange={event => setInsertAfter(event.target.value)}><option value="">投递之后</option>{(draft.workflow || []).map(stage => <option key={stage.id} value={stage.id}>{stage.label}之后</option>)}</select></label>
+                <label>插入位置<select aria-label="阶段插入位置" value={insertAfter} onChange={event => setInsertAfter(event.target.value)}><option value="">初筛之后</option>{(draft.workflow || []).map(stage => <option key={stage.id} value={stage.id}>{stage.label}之后</option>)}</select></label>
                 <Button icon={Plus} disabled={(draft.workflow || []).length >= 40 || (stageTemplate === 'custom' && !customStageName.trim())} onClick={addStage}>添加阶段</Button>
               </div>}
               <div id="job-workflow-details">

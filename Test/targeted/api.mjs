@@ -154,6 +154,8 @@ try {
     const workflow = [{ ...blank(), id: 'screen', label: '初筛', kind: 'screening', status: '未通过', notes: '未收到测评通知，初筛未通过' }, { ...blank(), id: 'exam', label: '测评', kind: 'exam' }]
     saved = await call('/api/applications', 'POST', { ...saved, status: '已投递', terminated: false, workflow: workflow.map(stage => stage.id === 'screen' ? { ...stage, status: '进行中' } : stage) })
     assert.equal(saved.status, '初筛'); assert.equal(saved.currentStageId, 'screen')
+    const progressed = await call('/api/applications', 'POST', { ...saved, status: '初筛', workflow: saved.workflow.map(stage => stage.id === 'screen' ? { ...stage, status: '已完成' } : stage) })
+    assert.equal(progressed.status, '测评'); assert.equal(progressed.currentStageId, 'exam'); assert.equal(progressed.workflow[1].status, '进行中')
     saved = await call('/api/applications', 'POST', { ...saved, workflow })
     assert.equal(saved.status, '拒绝'); assert.equal(saved.currentStageId, 'screen')
     assert.equal(saved.workflow[1].status, '未开始')
@@ -163,7 +165,7 @@ try {
   await check('自定义节点名称、类型、排序与移除持久保存', async () => {
     const workflow = [{ ...blank(), id: 'screen', label: '简历初筛', kind: 'screening', status: '已完成', date: '2026-09-02' }, { ...blank(), id: 'tech', label: '业务技术面', kind: 'interview', notes: '保留面试记录' }, { ...blank(), id: 'exam', label: '在线笔试', kind: 'exam' }]
     saved = await call('/api/applications', 'POST', { ...saved, workflow })
-    assert.equal(saved.status, '简历初筛'); assert.equal(saved.terminated, false)
+    assert.equal(saved.status, '业务技术面'); assert.equal(saved.currentStageId, 'tech'); assert.equal(saved.terminated, false)
     saved = await call('/api/applications', 'POST', { ...saved, workflow: [saved.workflow[0], saved.workflow[2], saved.workflow[1]] })
     assert.deepEqual(saved.workflow.map(stage => stage.id), ['screen', 'exam', 'tech'])
     assert.equal(saved.workflow[2].notes, '保留面试记录')

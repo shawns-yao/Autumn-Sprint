@@ -19,7 +19,7 @@ export default function Overview({ apps, onOpen, onView, action }: Props) {
   const today = localDate(now)
   const active = apps.filter(app => !isClosed(app) && app.status !== 'Offer')
   const offers = apps.filter(app => !isClosed(app) && app.status === 'Offer')
-  const stageNames = ['已投递', ...new Set(active.flatMap(app => workflowFor(app).map(stage => stage.label)))]
+  const stageNames = ['初筛', ...new Set(active.flatMap(app => workflowFor(app).map(stage => stage.label)))]
   const distribution = stageNames.map(stage => ({
     stage,
     count: active.filter(app => normalizedStatus(app) === stage).length,

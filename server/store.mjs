@@ -37,11 +37,14 @@ export function createStore(db) {
       try { metadata = row.workflow_json ? JSON.parse(row.workflow_json) : null }
       catch { throw new HttpError(500, '招聘流程数据格式异常，请先备份后修复') }
       requireValue(!metadata || (Array.isArray(metadata.stages) && typeof metadata.currentStageId === 'string'), '招聘流程数据格式异常', 500)
-      const workflow = metadata ? metadata.stages.map(node => ({ ...emptyStage(), ...byName[storageName(node.id)], ...node }))
-        : Object.entries(stageMap).filter(([id, label]) => id !== 'initialScreening' || byName[label]).map(([id, label]) => ({ ...legacy[id], id, label, kind: stageKind(id) }))
-      const currentStageId = metadata?.currentStageId ?? (workflow.find(stage => ['已终止', '未通过', '已获 Offer'].includes(stage.status)) || workflow.find(stage => stage.label === row.status || (row.status === '技术面' && stage.id === 'firstInterview')))?.id ?? ''
+      let workflow = metadata ? metadata.stages.map(node => ({ ...emptyStage(), ...byName[storageName(node.id)], ...node }))
+        : Object.entries(stageMap).map(([id, label]) => ({ ...legacy[id], id, label, kind: stageKind(id) }))
+      const storedStatus = row.status === '技术面' && !metadata ? '一面' : row.status === '已投递' ? '初筛' : row.status
+      const hasProgress = workflow.some(stage => stage.status !== '未开始')
+      if (row.status === '已投递' && !metadata?.currentStageId && !hasProgress && workflow[0]) workflow = workflow.map((stage, index) => index === 0 ? { ...stage, status: '进行中' } : stage)
+      const currentStageId = metadata?.currentStageId || (workflow.find(stage => ['已终止', '未通过', '已获 Offer'].includes(stage.status)) || workflow.find(stage => stage.label === storedStatus || (row.status === '技术面' && stage.id === 'firstInterview')))?.id || ''
       return {
-        id: row.id, company: row.company_name, title: row.title || '', city: row.city || '', status: row.status === '技术面' && !metadata ? '一面' : row.status,
+        id: row.id, company: row.company_name, title: row.title || '', city: row.city || '', status: storedStatus,
         applied: row.applied_date || '', source: row.source || '', website: row.official_url || '', priority: row.priority || '中',
         jd: row.jd_text || '', resume: row.resume_name || '', terminated: Boolean(row.terminated), revision: row.revision, updatedAt: row.updated_at,
         volunteerOrder: Number.isInteger(row.volunteer_order) ? row.volunteer_order : undefined,

@@ -2,6 +2,12 @@ export const stageMap = { initialScreening: '初筛', evaluation: '测评', writ
 export const stageKind = key => key === 'initialScreening' ? 'screening' : ['evaluation', 'written'].includes(key) ? 'exam' : 'interview'
 export const statuses = ['已投递', ...Object.values(stageMap), 'Offer', '拒绝', '终止']
 export const stageStatuses = ['未开始', '进行中', '已安排', '已完成', '未通过', '已终止', '已获 Offer', '跳过', '已取消']
+const completedBeforeAutoStart = new Set(['已完成', '跳过', '已取消'])
+function advanceStages(stages) {
+  if (stages.some(stage => ['进行中', '已安排'].includes(stage.status))) return
+  const nextIndex = stages.findIndex((stage, index) => stage.status === '未开始' && stages.slice(0, index).every(previous => completedBeforeAutoStart.has(previous.status)))
+  if (nextIndex >= 0) stages[nextIndex].status = '进行中'
+}
 export class HttpError extends Error { constructor(status, message) { super(message); this.status = status } }
 export function requireValue(condition, message, status = 400) { if (!condition) throw new HttpError(status, message) }
 export function object(value) { requireValue(value && typeof value === 'object' && !Array.isArray(value), '请求内容必须为对象'); return value }
@@ -43,7 +49,7 @@ export function application(input) {
   const result = {
     id: identifier(input.id), company: text(input.company, '公司', 200, true),
     title: text(input.title, '岗位', 300), city: text(input.city, '城市', 200),
-    status: input.status === '技术面' && input.workflow === undefined ? '一面' : input.status, applied: date(input.applied, '投递日期'),
+    status: input.status === '技术面' && input.workflow === undefined ? '一面' : input.status === '已投递' ? '初筛' : input.status, applied: date(input.applied, '投递日期'),
     source: text(input.source, '来源', 100), website: url(input.website, '岗位网址'), priority: input.priority || '中',
     jd: text(input.jd, '岗位描述', 500000, false, true), resume: text(input.resume, '简历名称', 300),
     revision: input.revision, volunteerOrder: input.volunteerOrder === undefined ? undefined : integer(input.volunteerOrder, '志愿顺序', 0, 1000000),
@@ -82,6 +88,7 @@ export function application(input) {
   const stageTerminated = stages.some(stage => stage.status === '已终止')
   const stageOffered = stages.some(stage => stage.status === '已获 Offer')
   const stageFailed = stages.some(stage => stage.status === '未通过')
+  if (!stageTerminated && !stageOffered && !stageFailed) advanceStages(stages)
   const activeStage = stages.find(stage => ['已安排', '进行中'].includes(stage.status)) || [...stages].reverse().find(stage => stage.status === '已完成') || stages.find(stage => stage.id === input.currentStageId && stage.label === result.status && stage.status === '未开始')
   requireValue(!(stageOffered && (stageTerminated || stageFailed)), '岗位不能同时标记为结束和 Offer')
   const inferredTermination = stageTerminated && result.status !== '终止'
@@ -90,7 +97,7 @@ export function application(input) {
   } else if (stageOffered) {
     result.status = 'Offer'
   } else if (custom) {
-    result.status = stageFailed ? '拒绝' : activeStage?.label || '已投递'
+    result.status = stageFailed ? '拒绝' : activeStage?.label || '初筛'
   }
   requireValue(typeof input.terminated === 'boolean' && (custom || inferredTermination || input.terminated === (result.status === '终止')), '终止标记与岗位状态不一致')
   result.terminated = result.status === '终止'
@@ -103,7 +110,6 @@ export function application(input) {
     requireValue(!stages.some(item => item.status === '未通过'), '存在未通过阶段，请将岗位设为拒绝或终止，或修正阶段结果')
     const current = stages.findIndex(item => item.label === result.status)
     requireValue(!stages.some((item, index) => item.status === '已安排' && index < current), '进入后续阶段前，请完成或取消此前的安排')
-    requireValue(!stages.some(item => item.status === '已安排' && result.status === '已投递'), '已安排流程后，请设置对应的当前阶段')
     const scheduled = stages.filter(item => ['已安排', '进行中'].includes(item.status))
     requireValue(scheduled.length <= 1, '同一岗位只能有一个进行中或已安排的阶段')
     requireValue(!scheduled.length || scheduled[0].label === result.status, '待进行的安排必须对应当前阶段')
