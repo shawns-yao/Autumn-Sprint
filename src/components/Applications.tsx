@@ -17,7 +17,7 @@ export default function Applications({ apps, query, setQuery, selectedId, onOpen
   const [city, setCity] = useState('')
   const [sort, setSort] = useState('newest')
   const [page, setPage] = useState(1)
-  const [size, setSize] = useState(10)
+  const [size, setSize] = useState(9)
   const [mode, setMode] = useState<'list' | 'grid'>('list')
   const filtered = useMemo(() => apps.filter(app =>
     `${app.company} ${app.title} ${app.source} ${app.status}`.toLowerCase().includes(query.trim().toLowerCase())
@@ -46,14 +46,17 @@ export default function Applications({ apps, query, setQuery, selectedId, onOpen
     </div>
     {mode === 'list' ? <div className="jobs-table-scroll"><table className="jobs-table">
       <colgroup><col className="job-col-company" /><col className="job-col-city" /><col className="job-col-status" /><col className="job-col-progress" /><col className="job-col-date" /><col className="job-col-next" /><col className="job-col-actions" /></colgroup>
-      <thead><tr>{['公司 / 岗位', '地点', '状态', '流程进度', '时间', '下一步安排', '操作'].map(label => <th key={label} scope="col">{label}</th>)}</tr></thead>
+      <thead><tr>{['公司 / 岗位', '地点', '状态', '流程进度', '投递时间', '下一步安排', '操作'].map(label => <th key={label} scope="col">{label}</th>)}</tr></thead>
       <tbody>{visible.map(app => <tr key={app.id} className={app.id === selectedId ? 'selected' : ''}>
         <td>{identity(app)}</td><td><span className="job-city"><MapPin size={14} />{app.city || '待补充'}</span></td>
         <td><ApplicationState app={app} /></td><td><ApplicationProgress app={app} compact /></td><td><TimeLabel app={app} /></td><td><NextStep app={app} /></td>
         <td><Button size="small" className="job-detail-button" aria-label={`查看${app.company}详情`} onClick={() => onOpen(app)}>查看详情</Button></td>
       </tr>)}</tbody>
     </table>{!visible.length && <Empty>没有符合条件的岗位</Empty>}</div> : <div className="jobs-grid">
-      {visible.map(app => <article className="job-grid-item" key={app.id}>{identity(app)}<div className="job-grid-meta"><span className="job-city"><MapPin size={14} />{app.city || '待补充'}</span><ApplicationState app={app} /></div><ApplicationProgress app={app} compact /><KeyDate app={app} /><Button size="small" className="job-detail-button" aria-label={`查看${app.company}详情`} onClick={() => onOpen(app)}>查看详情</Button></article>)}
+      {visible.map(app => <article className="job-grid-item" key={app.id}>
+        <header className="job-grid-heading">{identity(app)}<div className="job-grid-applied"><span><CalendarDays size={13} aria-hidden="true" />投递时间</span>{app.applied ? <time dateTime={app.applied}>{app.applied}</time> : <span className="job-grid-date-empty">待填写</span>}</div></header>
+        <div className="job-grid-meta"><span className="job-city"><MapPin size={14} />{app.city || '待补充'}</span><ApplicationState app={app} /></div><ApplicationProgress app={app} compact /><KeyDate app={app} /><Button size="small" className="job-detail-button" aria-label={`查看${app.company}详情`} onClick={() => onOpen(app)}>查看详情</Button>
+      </article>)}
       {!visible.length && <Empty>没有符合条件的岗位</Empty>}
     </div>}
     <Pagination page={safePage} size={size} total={filtered.length} onPage={setPage} onSize={value => { setSize(value); setPage(1) }} />
@@ -68,11 +71,7 @@ function KeyDate({ app }: { app: Application }) {
 }
 
 function TimeLabel({ app }: { app: Application }) {
-  const event = nextEvent(app)
-  const state = lifecycle(app)
-  const ended = ['已终止', '已结束', 'Offer'].includes(state)
-  const date = ended ? '' : event?.date || ''
-  return <div className="job-time-label"><span>{date || '—'}</span><small>{date ? relativeDate(date) : ended ? '流程已结束' : '时间待定'}</small></div>
+  return <div className="job-time-label"><span>{app.applied || '—'}</span><small>{app.applied ? relativeDate(app.applied) : '时间待定'}</small></div>
 }
 
 function NextStep({ app }: { app: Application }) {

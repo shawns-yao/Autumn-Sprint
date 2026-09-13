@@ -83,6 +83,12 @@
 .jobs-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
 .job-grid-item { display: grid; gap: 18px; background: #fff; border: 1px solid #dce5e1; border-radius: 8px; padding: 20px; min-width: 0; box-shadow: 0 7px 22px #213b300d; }
 .job-grid-item:hover { border-color: #afc6bc; box-shadow: 0 11px 27px #213b3017; }
+.job-grid-heading { display: grid; grid-template-columns: minmax(0, 1fr) 100px; align-items: start; gap: 12px; }
+.job-grid-heading .job-identity strong { overflow-wrap: anywhere; }
+.job-grid-applied { display: grid; justify-items: end; gap: 5px; min-height: 43px; text-align: right; }
+.job-grid-applied > span:first-child { display: inline-flex; align-items: center; gap: 5px; color: var(--ui-muted); font-size: 11px; }
+.job-grid-applied time { color: var(--ui-secondary); font-size: 13px; line-height: 1.6; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.job-grid-date-empty { color: var(--ui-muted); font-size: 12px; }
 .job-grid-meta { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .job-grid-item > .job-detail-button { justify-self: end; }
 .jobs-grid > .empty-state { grid-column: 1 / -1; }

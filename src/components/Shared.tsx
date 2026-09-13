@@ -39,7 +39,7 @@ export function Pagination({ page, total, size, onPage, onSize }: { page: number
   return <nav className="pagination" aria-label="列表分页">
     <span>共 <b>{total}</b> 条{total > 0 && ` · ${((page - 1) * size) + 1}–${Math.min(page * size, total)}`}</span>
     <div className="pagination-actions">
-      {onSize && <select aria-label="每页条数" value={size} onChange={e => onSize(Number(e.target.value))}>{[5, 10, 20, 50].map(n => <option key={n} value={n}>{n} 条 / 页</option>)}</select>}
+      {onSize && <select aria-label="每页条数" value={size} onChange={e => onSize(Number(e.target.value))}>{[5, 9, 20, 50].map(n => <option key={n} value={n}>{n} 条 / 页</option>)}</select>}
       <IconButton label="上一页" icon={ChevronLeft} size="small" disabled={page <= 1} onClick={() => onPage(page - 1)} />
       {items.map((n, i) => <span className="page-slot" key={n}>{i > 0 && n - items[i - 1] > 1 && <span>…</span>}<Button size="small" variant={n === page ? 'selected' : 'secondary'} aria-label={`第 ${n} 页`} aria-current={n === page ? 'page' : undefined} className="page-number" onClick={() => onPage(n)}>{n}</Button></span>)}
       <IconButton label="下一页" icon={ChevronRight} size="small" disabled={page >= pages} onClick={() => onPage(page + 1)} />
