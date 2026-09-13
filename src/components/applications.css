@@ -184,6 +184,9 @@
 .job-workflow-job { display: grid; gap: 7px; width: 100%; min-width: 0; padding: 0; border: 0; background: transparent; color: inherit; text-align: left; cursor: inherit; }
 .job-workflow-job-top { display: flex; align-items: flex-start; gap: 8px; min-width: 0; }
 .job-workflow-job-top strong { flex: 1; min-width: 0; color: #162b47; font-size: 16px; line-height: 1.45; overflow-wrap: anywhere; }
+.job-workflow-job-stage { display: flex; align-items: center; gap: 6px; min-width: 0; color: #2d6de8; font-size: 12px; line-height: 1.45; }
+.job-workflow-job-stage span { color: #7890ab; flex-shrink: 0; }
+.job-workflow-job-stage strong { min-width: 0; overflow-wrap: anywhere; }
 .job-workflow-job-side .job-state { flex-shrink: 0; min-width: 0; padding: 8px 13px; border-radius: 999px; font-size: 12px; font-weight: 600; }
 .job-workflow-job small { color: #687f9c; font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
 .job-workflow-job-side { display: flex; align-items: center; justify-content: flex-end; gap: 8px; min-width: 0; padding: 0; }

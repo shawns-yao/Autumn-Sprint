@@ -57,7 +57,7 @@ export default function App() {
     return saved
   }
   const openApplication = (app: Application) => { setSelected(app); setSelectedTab('basic') }
-  const openNewApplication = (company = '', initialTab: 'basic' | 'stages' | 'interviews' | 'review' = 'stages') => { setSelected({ ...makeApplication(), company }); setSelectedTab(initialTab) }
+  const openNewApplication = (company = '', initialTab: 'basic' | 'stages' | 'interviews' | 'review' = 'basic') => { setSelected({ ...makeApplication(), company }); setSelectedTab(initialTab) }
   const deleteApplication = async (target: Application) => {
     await request(`/api/applications/${target.id}`, { method: 'DELETE', body: JSON.stringify({ revision: target.revision }) })
     const persisted = apps.find(app => String(app.id) === String(target.id)) || target

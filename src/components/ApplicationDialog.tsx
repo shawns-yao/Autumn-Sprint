@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { ArrowDown, ArrowUp, CalendarDays, ExternalLink, Eye, FileText, MapPin, Pencil, Plus, Save, Trash2, X } from 'lucide-react'
-import { companyApplications, compareVolunteers, emptyStage, normalizedCompany, normalizedStatus, safeUrl, stageFields, stageKinds, stageResultOptions, withWorkflow, workflowFor, type Application, type Stage, type StageKey, type StageKind, type WorkflowStage } from '../model'
+import { companyApplications, compareVolunteers, currentWorkflowStage, emptyStage, normalizedCompany, normalizedStatus, safeUrl, stageFields, stageKinds, stageProgressLabel, stageResultOptions, withWorkflow, workflowFor, type Application, type Stage, type StageKey, type StageKind, type WorkflowStage } from '../model'
 import { Button, CompanyMark, IconButton } from './Shared'
 import { ApplicationProgress, ApplicationState } from './ApplicationProgress'
 import ReviewEditor from './ReviewEditor'
@@ -74,7 +74,7 @@ export default function ApplicationDialog({ app, apps, initialTab = 'basic', onS
   }
   const createJob = () => {
     const company = draft.company.trim() || app.company.trim()
-    const initialTab = company ? 'stages' : 'basic'
+    const initialTab: Tab = 'basic'
     if (dirty) { setDiscardAction({ kind: 'create', company, initialTab }); setDiscard(true) } else onCreateJob(company, initialTab)
   }
   const deleteJob = async (target = draft) => {
@@ -301,6 +301,7 @@ function JobSidebar({ jobs, currentId, onSelect, onCreate, onMove, onDelete, can
         <button type="button" className="job-workflow-job" aria-current={job.id === currentId ? 'page' : undefined} onClick={() => onSelect(job)} disabled={disabled}
           onKeyDown={event => { if (!['ArrowUp', 'ArrowDown'].includes(event.key)) return; const target = jobs[index + (event.key === 'ArrowUp' ? -1 : 1)]; if (!target) return; event.preventDefault(); onMove(job.id, target.id, event.key === 'ArrowUp') }}>
           <span className="job-workflow-job-top"><strong>{job.title || '岗位名称待填写'}</strong></span>
+          <span className="job-workflow-job-stage"><span>当前阶段</span><strong>{jobStageLabel(job)}</strong></span>
           <small>{[job.city, job.applied].filter(Boolean).join(' · ') || '岗位信息待补充'}</small>
         </button>
         <div className="job-workflow-job-side">
@@ -310,4 +311,12 @@ function JobSidebar({ jobs, currentId, onSelect, onCreate, onMove, onDelete, can
       </div>)}
     </div>
   </aside>
+}
+
+function jobStageLabel(job: Application) {
+  const stage = currentWorkflowStage(job)
+  if (stage) return stageProgressLabel(stage)
+  if (job.status === 'Offer') return '已获得 Offer'
+  if (['拒绝', '终止'].includes(job.status) || job.terminated) return '流程已结束'
+  return normalizedStatus(job) || '初筛'
 }

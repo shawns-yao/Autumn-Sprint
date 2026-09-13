@@ -1,6 +1,6 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { CalendarDays, LayoutGrid, List, MapPin } from 'lucide-react'
-import { currentWorkflowStage, lifecycle, nextEvent, normalizedStatus, primaryApplications, relativeDate, stageFields, timeRange, workflowFor, type Application } from '../model'
+import { currentWorkflowStage, lifecycle, nextEvent, normalizedStatus, primaryApplications, relativeDate, stageFields, stageProgressLabel, timeRange, workflowFor, type Application } from '../model'
 import { Button, CompanyMark, Empty, Heading, IconButton, Pagination, SearchField } from './Shared'
 import { ApplicationProgress, ApplicationState } from './ApplicationProgress'
 import './applications.css'
@@ -70,7 +70,7 @@ function KeyDate({ app }: { app: Application }) {
   const stage = currentWorkflowStage(app)
   const state = lifecycle(app)
   const ended = ['已终止', '已结束', 'Offer'].includes(state)
-  return <div className="job-key-date"><div><CalendarDays size={14} /><span>{ended ? '无后续安排' : event ? `${event.date} ${timeRange(event.stage)}` : stage ? stage.label : '暂无安排'}</span></div><small>{ended ? state === 'Offer' ? '已获得 Offer' : '已结束流程' : event ? `${event.label}${event.stage.location ? ` · ${event.stage.location}` : ''}` : stage ? stage.status === '进行中' ? '待处理' : '待安排' : '等待通知'}</small>{event && !ended && <em>{relativeDate(event.date)}</em>}</div>
+  return <div className="job-key-date"><div><CalendarDays size={14} /><span>{ended ? '无后续安排' : event ? `${event.date} ${timeRange(event.stage)}` : stage ? stage.label : '暂无安排'}</span></div><small>{ended ? state === 'Offer' ? '已获得 Offer' : '已结束流程' : event ? `${stageProgressLabel({ label: event.label, status: event.stage.status })}${event.stage.location ? ` · ${event.stage.location}` : ''}` : stage ? stageProgressLabel(stage) : '等待通知'}</small>{event && !ended && <em>{relativeDate(event.date)}</em>}</div>
 }
 
 function TimeLabel({ app }: { app: Application }) {
@@ -83,7 +83,7 @@ function NextStep({ app }: { app: Application }) {
   const state = lifecycle(app)
   const ended = ['已终止', '已结束', 'Offer'].includes(state)
   if (ended) return <div className="job-next-step"><strong>{state === 'Offer' ? '已获得 Offer' : '流程已结束'}</strong><small>{state}</small></div>
-  if (!event && stage) return <div className="job-next-step"><strong>{stage.label}</strong><small>{stage.status === '进行中' ? '待处理' : '待安排'}</small></div>
+  if (!event && stage) return <div className="job-next-step"><strong>{stageProgressLabel(stage)}</strong><small>{stage.status === '进行中' ? '待处理' : '待安排'}</small></div>
   if (!event) return <div className="job-next-step"><strong>暂无安排</strong><small>等待通知</small></div>
-  return <div className="job-next-step"><strong>{event.label}</strong><small>{[[event.date, timeRange(event.stage)].filter(Boolean).join(' '), event.stage.location].filter(Boolean).join(' · ') || '待补充安排'}</small></div>
+  return <div className="job-next-step"><strong>{stageProgressLabel({ label: event.label, status: event.stage.status })}</strong><small>{[[event.date, timeRange(event.stage)].filter(Boolean).join(' '), event.stage.location].filter(Boolean).join(' · ') || '待补充安排'}</small></div>
 }
