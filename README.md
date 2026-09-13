@@ -35,9 +35,9 @@
 
 ## 参考图片
 
-![首页视觉参考图](Image/source/home-reference_20260913.png)
-
-![岗位工作台参考图](Image/source/ui-reference_20260913.png)
+![秋招总览参考图](Image/source/dashboard-reference_20260913.png)
+![首页布局参考图](Image/source/home-layout-reference_20260913.png)
+![岗位列表参考图](Image/source/jobs-reference_20260913.png)
 
 ## 技术栈
 
