@@ -2,7 +2,7 @@ body, .top-navigation.war-room { min-width: 320px; }
 .top-navigation .workspace-page { position: relative; isolation: isolate; background: transparent; }
 .workspace-scenery { position: fixed; z-index: -1; inset: 74px 0 0; background: var(--ui-canvas) url('/images/home-landscape.webp') center bottom / 100% 350px no-repeat; pointer-events: none; }
 .top-navigation .notes-page { background: transparent; }
-.top-navigation.war-room .site-header { grid-template-columns: minmax(220px, 1fr) auto minmax(0, 1fr); border-color: #edf3f0; box-shadow: 0 3px 18px #2e584407; }
+.top-navigation.war-room .site-header { grid-template-columns: minmax(220px, 1fr) auto auto; border-color: #edf3f0; box-shadow: 0 3px 18px #2e584407; }
 .top-navigation.war-room .site-header nav { background: transparent; border-color: transparent; padding: 0; gap: 8px; }
 .top-navigation.war-room .site-header nav button { min-height: 40px; padding-inline: 16px; border-radius: 24px; color: #73828b; }
 .top-navigation.war-room .site-header nav button[aria-current] { background: #e8f7f1; color: #147b61; box-shadow: none; }
@@ -39,7 +39,7 @@ body, .top-navigation.war-room { min-width: 320px; }
   .workspace-scenery { background-size: 100% 390px; }
 }
 @media (max-width: 1100px) {
-  .top-navigation.war-room .site-header { grid-template-columns: auto 1fr; gap: 20px; padding-inline: 24px; }
+  .top-navigation.war-room .site-header { grid-template-columns: auto 1fr auto; gap: 20px; padding-inline: 24px; }
   .top-navigation.war-room .site-header nav { justify-self: end; gap: 2px; }
   .top-navigation.war-room .site-header nav button { padding-inline: 11px; }
   .workspace-page .ui-page-heading:has(.ui-page-actions) { flex-wrap: wrap; }
@@ -51,7 +51,8 @@ body, .top-navigation.war-room { min-width: 320px; }
   .notes-page { min-height: 780px; }
 }
 @media (max-width: 760px) {
-  .top-navigation.war-room .site-header { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; padding: 10px 16px 8px; }
+  .top-navigation.war-room .site-header { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px; padding: 10px 16px 8px; }
+  .top-navigation.war-room .site-header .github-link { order: 2; }
   .top-navigation.war-room .site-header nav { width: 100%; min-height: 40px; justify-content: center; flex-wrap: wrap; gap: 2px; }
   .top-navigation.war-room .site-header nav button { padding-inline: 10px; gap: 5px; font-size: 12px; }
   .top-navigation.war-room .site-brand img { width: 30px; height: 34px; }

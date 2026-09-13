@@ -1,6 +1,6 @@
 .top-navigation.war-room { display: block; min-width: 1100px; }
 .top-navigation .war-main { width: 100%; min-width: 0; }
-.site-header { position: sticky; top: 0; z-index: 24; height: 74px; padding: 0 clamp(24px, 3vw, 48px); display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 24px; background: #ffffffed; border-bottom: 1px solid #dfe7e3; box-shadow: 0 4px 18px #223a3010; backdrop-filter: blur(14px); }
+.site-header { position: sticky; top: 0; z-index: 24; height: 74px; padding: 0 clamp(24px, 3vw, 48px); display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 24px; background: #ffffffed; border-bottom: 1px solid #dfe7e3; box-shadow: 0 4px 18px #223a3010; backdrop-filter: blur(14px); }
 .site-brand { display: flex; align-items: center; gap: 11px; border: 0; padding: 3px 0; background: transparent; text-align: left; flex-shrink: 0; }
 .site-brand img { width: 39px; height: 42px; object-fit: contain; filter: saturate(.88); }
 .site-brand strong { display: block; font-family: var(--ui-display); font-size: 20px; color: #183229; }
@@ -12,6 +12,9 @@
 .site-header nav button[aria-current]::after { display: none; }
 .site-header nav button svg { color: #83908b; }
 .site-header nav button[aria-current] svg { color: #18775f; }
+.github-link { display: inline-flex; align-items: center; justify-self: end; gap: 7px; min-height: 38px; padding: 0 14px; border: 1px solid #bcebd6; border-radius: 999px; background: #e1f9ed; color: #176d56; font-size: 12px; font-weight: 650; text-decoration: none; white-space: nowrap; transition: border-color 150ms ease, background 150ms ease, color 150ms ease, transform 150ms ease; }
+.github-link svg { color: #efb51f; }
+.github-link:hover { border-color: #8bd8b6; background: #d2f5e4; color: #105b47; transform: translateY(-1px); }
 .site-header .ui-button.ui-button--primary, .welcome-actions .ui-button.ui-button--primary { background: #18775f; border-color: #18775f; color: white; }
 .site-header .ui-button.ui-button--primary:hover, .welcome-actions .ui-button.ui-button--primary:hover { background: #115f4c; border-color: #115f4c; }
 .top-navigation .app-canvas { min-height: calc(100vh - 74px); }
@@ -46,7 +49,7 @@
 .welcome-page :is(button, a):focus-visible, .site-header button:focus-visible { outline: 2px solid #21856e; outline-offset: 4px; }
 
 body:has(.welcome-page), .top-navigation.war-room:has(.welcome-page) { min-width: 320px; }
-.top-navigation:has(.welcome-page) .site-header { min-height: 74px; grid-template-columns: minmax(220px, 1fr) auto minmax(0, 1fr); border-color: #edf3f0; box-shadow: 0 3px 18px #2e584407; }
+.top-navigation:has(.welcome-page) .site-header { min-height: 74px; grid-template-columns: minmax(220px, 1fr) auto auto; border-color: #edf3f0; box-shadow: 0 3px 18px #2e584407; }
 .top-navigation:has(.welcome-page) .site-header nav { background: transparent; border-color: transparent; padding: 0; gap: 8px; }
 .top-navigation:has(.welcome-page) .site-header nav button { min-height: 40px; padding-inline: 16px; border-radius: 24px; color: #73828b; }
 .top-navigation:has(.welcome-page) .site-header nav button[aria-current] { background: #e8f7f1; color: #147b61; box-shadow: none; }
@@ -58,14 +61,15 @@ body:has(.welcome-page), .top-navigation.war-room:has(.welcome-page) { min-width
   .welcome-landscape { height: 390px; }
 }
 @media (max-width: 1100px) {
-  .top-navigation:has(.welcome-page) .site-header { grid-template-columns: auto 1fr; gap: 20px; padding-inline: 24px; }
+  .top-navigation:has(.welcome-page) .site-header { grid-template-columns: auto 1fr auto; gap: 20px; padding-inline: 24px; }
   .top-navigation:has(.welcome-page) .site-header nav { justify-self: end; gap: 2px; }
   .top-navigation:has(.welcome-page) .site-header nav button { padding-inline: 11px; }
   .welcome-entry { padding-inline: 16px; gap: 12px; }
   .entry-arrow { display: none; }
 }
 @media (max-width: 760px) {
-  .top-navigation:has(.welcome-page) .site-header { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; padding: 10px 16px 8px; }
+  .top-navigation:has(.welcome-page) .site-header { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px; padding: 10px 16px 8px; }
+  .top-navigation:has(.welcome-page) .site-header .github-link { order: 2; }
   .top-navigation:has(.welcome-page) .site-header nav { width: 100%; min-height: 40px; justify-content: center; flex-wrap: wrap; gap: 2px; }
   .top-navigation:has(.welcome-page) .site-header nav button { padding-inline: 10px; gap: 5px; font-size: 12px; }
   .top-navigation:has(.welcome-page) .site-brand img { width: 30px; height: 34px; }

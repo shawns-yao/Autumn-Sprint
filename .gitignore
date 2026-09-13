@@ -1,5 +1,12 @@
 node_modules/
 dist/
+Log/
+Temp/
+Test/output/
+data/*.sqlite*
+data/backups/
+data/processed/
+data/manifest/
 *.local
 .env
 .env.*

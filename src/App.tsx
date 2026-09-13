@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
-import { BriefcaseBusiness, ChartNoAxesCombined, FileStack, House, NotebookPen, Plus, RefreshCw, Settings2, type LucideIcon } from 'lucide-react'
+import { BriefcaseBusiness, ChartNoAxesCombined, FileStack, House, NotebookPen, Plus, RefreshCw, Settings2, Star, type LucideIcon } from 'lucide-react'
 import ApplicationsView from './components/Applications'
 import Overview from './components/Overview'
 import Notes from './components/Notes'
@@ -78,6 +78,7 @@ export default function App() {
     <header className="site-header">
       <button className="site-brand" onClick={() => navigate('home')} aria-label="秋招速递首页"><img src="/images/brand-leaf.png" alt="" width="44" height="48" /><span><strong>秋招速递</strong><small>让理想的工作，与你更近</small></span></button>
       <nav aria-label="主导航">{nav.map(({ id, label, icon: Icon }) => <button key={id} aria-current={view === id ? 'page' : undefined} onClick={() => navigate(id)}><Icon size={16} strokeWidth={1.9} />{label}</button>)}</nav>
+      <a className="github-link" href="https://github.com/shawns-yao/Autumn-Sprint" target="_blank" rel="noreferrer" aria-label="在 GitHub 查看 Autumn-Sprint"><Star size={15} fill="currentColor" aria-hidden="true" /><span>Star on GitHub</span></a>
     </header>
     <main className={`war-main ${view === 'home' ? '' : 'workspace-page'}`}>
       {view !== 'home' && <div className="workspace-scenery" aria-hidden="true" />}
