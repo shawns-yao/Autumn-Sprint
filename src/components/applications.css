@@ -174,7 +174,7 @@
 .job-workflow-sidebar-company { display: grid; gap: 7px; margin-bottom: 14px; color: var(--ui-secondary); font-size: 12px; }
 .job-workflow-sidebar-company input { width: 100%; min-width: 0; height: var(--ui-control-height); padding: 8px 10px; border: 1px solid var(--ui-border); border-radius: var(--ui-radius); background: #fff; color: var(--ui-text); font-size: 14px; }
 .job-workflow-job-list { display: grid; gap: 7px; max-height: 420px; overflow: auto; }
-.job-workflow-job-row { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: stretch; gap: 7px; min-width: 0; padding: 2px; border-radius: 7px; }
+.job-workflow-job-row { position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: stretch; gap: 5px; min-width: 0; padding: 2px; border-radius: 7px; }
 .job-workflow-job-row.dragging { opacity: .5; }
 .job-workflow-job-row.drop-before::before, .job-workflow-job-row.drop-after::after { content: ''; position: absolute; left: 4px; right: 4px; height: 2px; border-radius: 2px; background: #218168; }
 .job-workflow-job-row.drop-before::before { top: 0; }
@@ -187,8 +187,8 @@
 .job-workflow-job .job-state { flex-shrink: 0; min-width: 0; padding: 4px 6px; font-size: 9px; }
 .job-workflow-job small { color: var(--ui-muted); font-size: 10px; line-height: 1.5; overflow-wrap: anywhere; }
 .job-workflow-job-side { display: grid; justify-items: end; align-content: start; gap: 5px; min-width: 0; padding: 9px 2px 5px 0; }
-.job-workflow-job-delete { min-height: 25px; max-width: 118px; padding: 4px 6px; font-size: 9px; white-space: nowrap; }
-.job-workflow-drag-handle { display: grid; place-items: center; width: 28px; height: 28px; margin-top: auto; border-radius: 4px; color: #8ca29a; cursor: grab; }
+.job-workflow-job-delete { width: 28px; min-width: 28px; height: 28px; min-height: 28px; padding: 0; border-radius: 4px; }
+.job-workflow-drag-handle { display: grid; place-items: center; align-self: center; width: 28px; height: 28px; border-radius: 4px; color: #8ca29a; cursor: grab; }
 .job-workflow-drag-handle:hover, .job-workflow-drag-handle:focus-visible { background: #edf6f2; color: #218168; outline: 2px solid #8fcab7; outline-offset: 1px; }
 .job-workflow-drag-handle:active { cursor: grabbing; }
 .job-workflow-main { min-width: 0; }
@@ -254,7 +254,7 @@
   .job-workflow-job-list { max-height: 250px; }
   .job-workflow-job { padding: 10px 8px; }
   .job-workflow-job-top { display: grid; gap: 5px; }
-  .job-workflow-job .job-state { justify-self: start; }
+  .job-workflow-job-side .job-state { justify-self: end; }
 }
 @media (max-width: 390px) {
   .job-workflow-job-list { grid-template-columns: minmax(0, 1fr); }

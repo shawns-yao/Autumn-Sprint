@@ -296,18 +296,18 @@ function JobSidebar({ jobs, currentId, company, onCompanyChange, onSelect, onCre
         onDragOver={event => { if (!draggingId || draggingId === String(job.id)) return; event.preventDefault(); const rect = event.currentTarget.getBoundingClientRect(); setDropTarget({ id: String(job.id), before: event.clientY < rect.top + rect.height / 2 }) }}
         onDrop={event => { event.preventDefault(); const sourceId = event.dataTransfer.getData('text/plain') || draggingId; if (sourceId) onMove(sourceId, job.id, dropTarget?.id === String(job.id) ? dropTarget.before : event.clientY < event.currentTarget.getBoundingClientRect().top + event.currentTarget.getBoundingClientRect().height / 2); finishDrag() }}
         onDragEnd={finishDrag}>
+        <span className="job-workflow-drag-handle" draggable={!disabled} role="button" tabIndex={disabled ? -1 : 0} aria-label={`拖动调整${job.title || '当前岗位'}的志愿顺序`} title="拖动调整志愿顺序"
+          onDragStart={event => { event.stopPropagation(); setDraggingId(String(job.id)); event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', String(job.id)) }}
+          onKeyDown={event => { if (!['ArrowUp', 'ArrowDown'].includes(event.key)) return; const target = jobs[index + (event.key === 'ArrowUp' ? -1 : 1)]; if (!target) return; event.preventDefault(); onMove(job.id, target.id, event.key === 'ArrowUp') }}>
+          <GripVertical size={16} aria-hidden="true" />
+        </span>
         <button type="button" className={`job-workflow-job ${job.id === currentId ? 'current' : ''}`} aria-current={job.id === currentId ? 'page' : undefined} onClick={() => onSelect(job)} disabled={disabled}>
           <span className="job-workflow-job-top"><strong>{job.title || '岗位名称待填写'}</strong></span>
           <small>{[job.city, job.applied].filter(Boolean).join(' · ') || '岗位信息待补充'}</small>
         </button>
         <div className="job-workflow-job-side">
           <ApplicationState app={job} />
-          {job.id === currentId && <Button icon={Trash2} variant="danger" size="small" className="job-workflow-job-delete" disabled={disabled || !canDelete} onClick={event => { event.stopPropagation(); onDelete() }}>删除当前岗位</Button>}
-          <span className="job-workflow-drag-handle" draggable={!disabled} role="button" tabIndex={disabled ? -1 : 0} aria-label={`拖动调整${job.title || '当前岗位'}的志愿顺序`} title="拖动调整志愿顺序"
-            onDragStart={event => { event.stopPropagation(); setDraggingId(String(job.id)); event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', String(job.id)) }}
-            onKeyDown={event => { if (!['ArrowUp', 'ArrowDown'].includes(event.key)) return; const target = jobs[index + (event.key === 'ArrowUp' ? -1 : 1)]; if (!target) return; event.preventDefault(); onMove(job.id, target.id, event.key === 'ArrowUp') }}>
-            <GripVertical size={16} aria-hidden="true" />
-          </span>
+          {job.id === currentId && <IconButton icon={X} label="删除当前岗位" variant="danger" size="small" className="job-workflow-job-delete" disabled={disabled || !canDelete} onClick={event => { event.stopPropagation(); onDelete() }} />}
         </div>
       </div>)}
     </div>
