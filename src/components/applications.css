@@ -165,32 +165,32 @@
 .job-save-error { color: #d65365; }
 .job-save-status { color: #7489a3; }
 .job-stages-tab, .job-materials-tab, .job-records-tab, .job-notes-tab, .job-tab-content { padding: 21px; border: 1px solid #dfe7e3; border-radius: 8px; background: #fff; min-height: 100%; box-shadow: 0 5px 18px #203a2f0b; }
-.job-workflow-layout, .job-tab-layout { display: grid; grid-template-columns: 246px minmax(0, 1fr); gap: 20px; align-items: stretch; min-width: 0; }
-.job-workflow-sidebar { position: sticky; top: 0; align-self: start; min-width: 0; box-sizing: border-box; padding: 14px; border: 1px solid #dfe7e3; border-radius: 7px; background: #fbfdfc; }
-.job-workflow-sidebar-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 14px; }
+.job-workflow-layout, .job-tab-layout { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 20px; align-items: stretch; min-width: 0; }
+.job-workflow-sidebar { position: sticky; top: 0; align-self: start; min-width: 0; box-sizing: border-box; padding: 18px; border: 1px solid #e0e8f2; border-radius: 14px; background: #fff; }
+.job-workflow-sidebar-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
 .job-workflow-sidebar-heading > div { display: flex; align-items: baseline; gap: 7px; min-width: 0; }
-.job-workflow-sidebar-heading span { color: var(--ui-secondary); font-size: 12px; }
-.job-workflow-sidebar-heading strong { color: var(--ui-action); font-size: 16px; }
+.job-workflow-sidebar-heading span { color: #172d49; font-size: 20px; font-weight: 700; line-height: 1.2; white-space: nowrap; }
+.job-workflow-sidebar-heading strong { color: #2d6de8; font-size: 24px; line-height: 1; }
+.job-workflow-sidebar-heading .ui-button { min-height: 42px; padding: 8px 17px; border-color: #d6e5ff; border-radius: 10px; background: #eff5ff; color: #2165d1; font-size: 14px; box-shadow: none; }
+.job-workflow-sidebar-heading .ui-button:hover { border-color: #bfd5fb; background: #e5efff; color: #1d5ac0; box-shadow: none; transform: none; }
 .job-workflow-sidebar-company { display: grid; gap: 7px; margin-bottom: 14px; color: var(--ui-secondary); font-size: 12px; }
 .job-workflow-sidebar-company input { width: 100%; min-width: 0; height: var(--ui-control-height); padding: 8px 10px; border: 1px solid var(--ui-border); border-radius: var(--ui-radius); background: #fff; color: var(--ui-text); font-size: 14px; }
-.job-workflow-job-list { display: grid; gap: 7px; max-height: 420px; overflow: auto; }
-.job-workflow-job-row { position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: stretch; gap: 5px; min-width: 0; padding: 2px; border-radius: 7px; }
-.job-workflow-job-row.dragging { opacity: .5; }
-.job-workflow-job-row.drop-before::before, .job-workflow-job-row.drop-after::after { content: ''; position: absolute; left: 4px; right: 4px; height: 2px; border-radius: 2px; background: #218168; }
+.job-workflow-job-list { display: grid; gap: 12px; max-height: 420px; overflow: auto; }
+.job-workflow-job-row { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: stretch; gap: 12px; min-width: 0; padding: 17px 13px 17px 18px; border: 1px solid #e0e8f2; border-radius: 16px; background: #fff; cursor: grab; transition: border-color .16s ease, box-shadow .16s ease, transform .16s ease, opacity .16s ease; }
+.job-workflow-job-row:hover { border-color: #c5d9f8; box-shadow: 0 6px 15px #315b9912; transform: translateY(-1px); }
+.job-workflow-job-row.current { border-color: #d7e5ff; background: #eff6ff; box-shadow: inset 5px 0 #2d6de8; }
+.job-workflow-job-row.dragging { opacity: .55; cursor: grabbing; transform: scale(.99); }
+.job-workflow-job-row.drop-before::before, .job-workflow-job-row.drop-after::after { content: ''; position: absolute; left: 12px; right: 12px; height: 3px; border-radius: 3px; background: #2d6de8; }
 .job-workflow-job-row.drop-before::before { top: 0; }
 .job-workflow-job-row.drop-after::after { bottom: 0; }
-.job-workflow-job { display: grid; gap: 7px; width: 100%; min-width: 0; padding: 11px 10px; border: 1px solid transparent; border-radius: 6px; background: transparent; color: inherit; text-align: left; cursor: pointer; }
-.job-workflow-job:hover { border-color: #c8ded4; background: #f2f9f5; }
-.job-workflow-job.current { border-color: #9acdbb; background: #eaf7f1; box-shadow: inset 3px 0 #218168; }
+.job-workflow-job { display: grid; gap: 7px; width: 100%; min-width: 0; padding: 0; border: 0; background: transparent; color: inherit; text-align: left; cursor: inherit; }
 .job-workflow-job-top { display: flex; align-items: flex-start; gap: 8px; min-width: 0; }
-.job-workflow-job-top strong { flex: 1; min-width: 0; color: #28483d; font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
-.job-workflow-job .job-state { flex-shrink: 0; min-width: 0; padding: 4px 6px; font-size: 9px; }
-.job-workflow-job small { color: var(--ui-muted); font-size: 10px; line-height: 1.5; overflow-wrap: anywhere; }
-.job-workflow-job-side { display: grid; justify-items: end; align-content: start; gap: 5px; min-width: 0; padding: 9px 2px 5px 0; }
-.job-workflow-job-delete { width: 28px; min-width: 28px; height: 28px; min-height: 28px; padding: 0; border-radius: 4px; }
-.job-workflow-drag-handle { display: grid; place-items: center; align-self: center; width: 28px; height: 28px; border-radius: 4px; color: #8ca29a; cursor: grab; }
-.job-workflow-drag-handle:hover, .job-workflow-drag-handle:focus-visible { background: #edf6f2; color: #218168; outline: 2px solid #8fcab7; outline-offset: 1px; }
-.job-workflow-drag-handle:active { cursor: grabbing; }
+.job-workflow-job-top strong { flex: 1; min-width: 0; color: #162b47; font-size: 16px; line-height: 1.45; overflow-wrap: anywhere; }
+.job-workflow-job-side .job-state { flex-shrink: 0; min-width: 0; padding: 8px 13px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+.job-workflow-job small { color: #687f9c; font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.job-workflow-job-side { display: flex; align-items: center; justify-content: flex-end; gap: 8px; min-width: 0; padding: 0; }
+.job-workflow-job-delete { width: 28px; min-width: 28px; height: 28px; min-height: 28px; padding: 0; border: 0; border-radius: 50%; color: #8193ab; box-shadow: none; }
+.job-workflow-job-delete:hover { border: 0; background: #fff0f1; color: #d65e68; box-shadow: none; transform: none; }
 .job-workflow-main { min-width: 0; }
 .job-jd-panel { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--ui-border); }
 .job-jd-panel .job-section-title { margin-bottom: 10px; }
@@ -252,10 +252,16 @@
   .job-workflow-layout, .job-tab-layout { grid-template-columns: minmax(0, 1fr); gap: 14px; }
   .job-workflow-sidebar { position: static; }
   .job-workflow-job-list { max-height: 250px; }
-  .job-workflow-job { padding: 10px 8px; }
+  .job-workflow-job-row { padding: 14px 12px 14px 15px; gap: 8px; }
+  .job-workflow-job { padding: 0; }
   .job-workflow-job-top { display: grid; gap: 5px; }
-  .job-workflow-job-side .job-state { justify-self: end; }
+  .job-workflow-job-side { gap: 5px; }
 }
 @media (max-width: 390px) {
+  .job-workflow-sidebar { padding: 14px; }
+  .job-workflow-sidebar-heading { gap: 8px; }
+  .job-workflow-sidebar-heading span { font-size: 17px; }
+  .job-workflow-sidebar-heading strong { font-size: 21px; }
+  .job-workflow-sidebar-heading .ui-button { padding-inline: 11px; }
   .job-workflow-job-list { grid-template-columns: minmax(0, 1fr); }
 }

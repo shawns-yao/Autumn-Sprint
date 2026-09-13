@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
-import { ArrowDown, ArrowUp, CalendarDays, ExternalLink, Eye, FileText, GripVertical, MapPin, Pencil, Plus, Save, Trash2, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, CalendarDays, ExternalLink, Eye, FileText, MapPin, Pencil, Plus, Save, Trash2, X } from 'lucide-react'
 import { companyApplications, compareVolunteers, emptyStage, normalizedCompany, normalizedStatus, safeUrl, stageFields, stageKinds, stageResultOptions, withWorkflow, workflowFor, type Application, type Stage, type StageKey, type StageKind, type WorkflowStage } from '../model'
 import { Button, CompanyMark, IconButton } from './Shared'
 import { ApplicationProgress, ApplicationState } from './ApplicationProgress'
@@ -292,16 +292,14 @@ function JobSidebar({ jobs, currentId, company, onCompanyChange, onSelect, onCre
     <header className="job-workflow-sidebar-heading"><div><span>投递岗位</span><strong>{jobs.length}</strong></div><Button icon={Plus} size="small" disabled={disabled} onClick={onCreate}>新增岗位</Button></header>
     {!canDelete && <label className="job-workflow-sidebar-company">公司名称<input value={company} onChange={event => onCompanyChange(event.target.value)} placeholder="填写公司名称" disabled={disabled} /></label>}
     <div className="job-workflow-job-list">
-      {jobs.map((job, index) => <div className={`job-workflow-job-row ${draggingId === String(job.id) ? 'dragging' : ''} ${dropTarget?.id === String(job.id) ? dropTarget.before ? 'drop-before' : 'drop-after' : ''}`} key={job.id}
+      {jobs.map((job, index) => <div className={`job-workflow-job-row ${job.id === currentId ? 'current' : ''} ${draggingId === String(job.id) ? 'dragging' : ''} ${dropTarget?.id === String(job.id) ? dropTarget.before ? 'drop-before' : 'drop-after' : ''}`} key={job.id}
+        draggable={!disabled}
         onDragOver={event => { if (!draggingId || draggingId === String(job.id)) return; event.preventDefault(); const rect = event.currentTarget.getBoundingClientRect(); setDropTarget({ id: String(job.id), before: event.clientY < rect.top + rect.height / 2 }) }}
         onDrop={event => { event.preventDefault(); const sourceId = event.dataTransfer.getData('text/plain') || draggingId; if (sourceId) onMove(sourceId, job.id, dropTarget?.id === String(job.id) ? dropTarget.before : event.clientY < event.currentTarget.getBoundingClientRect().top + event.currentTarget.getBoundingClientRect().height / 2); finishDrag() }}
+        onDragStart={event => { if (event.target instanceof Element && event.target.closest('.job-workflow-job-delete')) { event.preventDefault(); return } setDraggingId(String(job.id)); event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', String(job.id)) }}
         onDragEnd={finishDrag}>
-        <span className="job-workflow-drag-handle" draggable={!disabled} role="button" tabIndex={disabled ? -1 : 0} aria-label={`拖动调整${job.title || '当前岗位'}的志愿顺序`} title="拖动调整志愿顺序"
-          onDragStart={event => { event.stopPropagation(); setDraggingId(String(job.id)); event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', String(job.id)) }}
+        <button type="button" className="job-workflow-job" aria-current={job.id === currentId ? 'page' : undefined} onClick={() => onSelect(job)} disabled={disabled}
           onKeyDown={event => { if (!['ArrowUp', 'ArrowDown'].includes(event.key)) return; const target = jobs[index + (event.key === 'ArrowUp' ? -1 : 1)]; if (!target) return; event.preventDefault(); onMove(job.id, target.id, event.key === 'ArrowUp') }}>
-          <GripVertical size={16} aria-hidden="true" />
-        </span>
-        <button type="button" className={`job-workflow-job ${job.id === currentId ? 'current' : ''}`} aria-current={job.id === currentId ? 'page' : undefined} onClick={() => onSelect(job)} disabled={disabled}>
           <span className="job-workflow-job-top"><strong>{job.title || '岗位名称待填写'}</strong></span>
           <small>{[job.city, job.applied].filter(Boolean).join(' · ') || '岗位信息待补充'}</small>
         </button>
