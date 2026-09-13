@@ -168,11 +168,17 @@
 .job-stage-picker { display: flex; align-items: center; gap: 8px; color: #7890ab; font-size: 11px; }
 .job-stage-picker select, .job-stage-form > .job-section-title select { padding: 6px 9px; border: 1px solid #dbe6f3; border-radius: 4px; background: #fff; color: #365676; font-size: 12px; }
 .job-stage-form { margin: 26px 0 18px; padding-top: 18px; border-top: 1px solid #e5edf6; }
+.job-stages-tab .job-stage-form { margin: 20px 0 0; padding-top: 0; border-top: 0; }
+.job-stage-details { margin-top: 26px; padding: 20px 0 0; border-top: 1px solid var(--ui-border); }
+.job-stage-details > h4 { display: flex; align-items: center; gap: 7px; margin: 0 0 12px; color: var(--ui-secondary); font-size: 12px; font-weight: 400; }
+.job-stage-details > h4 svg { flex-shrink: 0; color: var(--ui-action); }
 .job-stage-editor-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 14px; margin-bottom: 18px; }
-.job-stage-editor-fields { display: grid; grid-template-columns: minmax(180px, 1fr) minmax(150px, .7fr); gap: 12px; flex: 1; }
-.job-stage-editor-fields label { color: #778ba6; font-size: 11px; }
-.job-stage-editor-fields input, .job-stage-editor-fields select { display: block; width: 100%; height: 35px; margin-top: 6px; border: 1px solid #dee8f5; border-radius: 4px; padding: 8px 9px; background: #fff; color: #2b4263; font-size: 12px; }
+.job-stage-editor-fields { display: grid; grid-template-columns: minmax(0, 1.3fr) repeat(2, minmax(0, 1fr)); gap: 12px; flex: 1; }
+.job-stage-editor-fields label { min-width: 0; color: var(--ui-secondary); font-size: 12px; }
+.job-stage-editor-fields input, .job-stage-editor-fields select { display: block; width: 100%; min-width: 0; height: var(--ui-control-height); margin-top: 6px; border: 1px solid var(--ui-border); border-radius: var(--ui-radius); padding: 8px 10px; background: #fff; color: var(--ui-text); font-size: 14px; }
 .job-stage-editor-actions { display: flex; gap: 2px; }
+.job-stage-schedule { min-width: 0; margin: 0 0 20px; padding: 0; border: 0; }
+.job-stage-schedule > legend { margin-bottom: 12px; padding: 0; color: var(--ui-secondary); font-size: 12px; }
 .job-stage-add { display: flex; align-items: center; gap: 8px; }
 .job-stage-add select { height: 35px; padding: 6px 9px; border: 1px solid #dee8f5; border-radius: 4px; background: #fff; color: #2b4263; font-size: 12px; }
 .job-time-range-field { min-width: 0; margin: 0; padding: 0; border: 0; }

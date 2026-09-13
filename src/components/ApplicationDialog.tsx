@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { ArrowDown, ArrowUp, CalendarDays, ExternalLink, FileText, MapPin, Plus, Save, Trash2, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, CalendarDays, ExternalLink, Eye, FileText, MapPin, Pencil, Plus, Save, Trash2, X } from 'lucide-react'
 import { emptyStage, normalizedStatus, safeUrl, stageFields, stageKinds, stageResultOptions, withWorkflow, workflowFor, type Application, type Stage, type StageKey, type StageKind, type WorkflowStage } from '../model'
 import { Button, CompanyMark, IconButton } from './Shared'
 import { ApplicationProgress, ApplicationState } from './ApplicationProgress'
 import Attachments from './Attachments'
 import ReviewEditor from './ReviewEditor'
+import StageDetails from './StageDetails'
 import StageReview from './StageReview'
 import './applications.css'
 
@@ -17,6 +18,7 @@ export default function ApplicationDialog({ app, onClose, onSave }: Props) {
   const [draft, setDraft] = useState<Application>(() => ({ ...app, workflow: workflowFor(app) }))
   const [baseline, setBaseline] = useState(() => JSON.stringify({ ...app, workflow: workflowFor(app) }))
   const [tab, setTab] = useState<Tab>('basic')
+  const [editingWorkflow, setEditingWorkflow] = useState(false)
   const [stageKey, setStageKey] = useState<StageKey>(() => workflowFor(app).find(stage => ['已终止', '未通过', '已获 Offer'].includes(stage.status))?.id || workflowFor(app).find(stage => stage.label === normalizedStatus(app))?.id || workflowFor(app)[0]?.id || 'initialScreening')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -55,7 +57,7 @@ export default function ApplicationDialog({ app, onClose, onSave }: Props) {
     setSaving(true); setError(''); setMessage('')
     try {
       const saved = await onSave(draft)
-      setDraft(saved); setBaseline(JSON.stringify(saved)); setMessage('已保存')
+      setDraft(saved); setBaseline(JSON.stringify(saved)); setMessage('已保存'); setEditingWorkflow(false)
     } catch (error) {
       setError(error instanceof Error ? error.message : '保存失败，请重试。')
     } finally { setSaving(false) }
@@ -138,15 +140,20 @@ export default function ApplicationDialog({ app, onClose, onSave }: Props) {
           </section>
         </div>}
         {tab === 'stages' && <section className="job-stages-tab">
-          <div className="job-section-title"><h3>招聘流程</h3></div>
-          <div className="job-stage-add">
-            <label>新增阶段<select ref={stageTemplateRef} aria-label="新增阶段类型" value={stageTemplate} onChange={event => { setStageTemplate(event.target.value); if (event.target.value === 'initialScreening') setInsertAfter('') }}>{stageFields.map(([id, label]) => <option value={id} key={id}>{label}</option>)}<option value="custom">自定义阶段</option></select></label>
+          <div className="job-section-title"><h3>{editingWorkflow ? '招聘流程编辑' : '招聘流程'}</h3><Button icon={editingWorkflow ? Eye : Pencil} aria-controls="job-workflow-details" onClick={() => setEditingWorkflow(current => !current)}>{editingWorkflow ? '返回查看' : '修改流程'}</Button></div>
+          <ApplicationProgress app={draft} selectedStage={selectedWorkflowStage?.id} onSelectStage={setStageKey} onInsertAfter={editingWorkflow && (draft.workflow || []).length < 40 ? beginInsert : undefined} />
+          {editingWorkflow && <div className="job-stage-add">
+            <label>新增阶段<select ref={stageTemplateRef} aria-label="新增阶段类型" value={stageTemplate} onChange={event => setStageTemplate(event.target.value)}>{stageFields.map(([id, label]) => <option value={id} key={id}>{label}</option>)}<option value="custom">自定义阶段</option></select></label>
             {stageTemplate === 'custom' && <label>阶段名称<input aria-label="自定义阶段名称" maxLength={80} value={customStageName} onChange={event => setCustomStageName(event.target.value)} /></label>}
             <label>插入位置<select aria-label="阶段插入位置" value={insertAfter} onChange={event => setInsertAfter(event.target.value)}><option value="">投递之后</option>{(draft.workflow || []).map(stage => <option key={stage.id} value={stage.id}>{stage.label}之后</option>)}</select></label>
             <Button icon={Plus} disabled={(draft.workflow || []).length >= 40 || (stageTemplate === 'custom' && !customStageName.trim())} onClick={addStage}>添加阶段</Button>
+          </div>}
+          <div id="job-workflow-details">
+            {selectedWorkflowStage ? editingWorkflow
+              ? <StageForm key={selectedWorkflowStage.id} stage={selectedWorkflowStage} index={(draft.workflow || []).findIndex(item => item.id === selectedWorkflowStage.id)} total={(draft.workflow || []).length} onMetaChange={value => updateStageMeta(selectedWorkflowStage.id, value)} onMove={offset => moveStage(selectedWorkflowStage.id, offset)} onRemove={() => removeStage(selectedWorkflowStage.id)} onChange={value => patchStage(selectedWorkflowStage.id, value)} />
+              : <StageDetails key={selectedWorkflowStage.id} stage={selectedWorkflowStage} />
+              : <p className="job-muted-empty">暂无招聘阶段</p>}
           </div>
-          <ApplicationProgress app={draft} selectedStage={stageKey} onSelectStage={setStageKey} onInsertAfter={(draft.workflow || []).length < 40 ? beginInsert : undefined} />
-          {selectedWorkflowStage ? <StageForm key={selectedWorkflowStage.id} stage={selectedWorkflowStage} index={(draft.workflow || []).findIndex(item => item.id === selectedWorkflowStage.id)} total={(draft.workflow || []).length} onMetaChange={value => updateStageMeta(selectedWorkflowStage.id, value)} onMove={offset => moveStage(selectedWorkflowStage.id, offset)} onRemove={() => removeStage(selectedWorkflowStage.id)} onChange={value => patchStage(selectedWorkflowStage.id, value)} /> : <p className="job-muted-empty">暂无招聘阶段</p>}
         </section>}
         {tab === 'materials' && <Attachments app={draft} />}
         {tab === 'interviews' && <section className="job-records-tab"><div className="job-section-title"><h3>面试记录</h3>{interviewStagePicker}</div>{interviewStageKey ? <StageForm key={interviewStageKey} stage={interviewStages.find(stage => stage.id === interviewStageKey)!} index={-1} total={0} onMetaChange={() => undefined} onMove={() => undefined} onRemove={() => undefined} onChange={value => patchStage(interviewStageKey, value)} editableStatus={false} /> : <p className="job-muted-empty">招聘流程中暂无面试阶段</p>}</section>}
@@ -161,14 +168,31 @@ export default function ApplicationDialog({ app, onClose, onSave }: Props) {
 
 function StageForm({ stage, index, total, onMetaChange, onMove, onRemove, onChange, editableStatus = true }: { stage: WorkflowStage; index: number; total: number; onMetaChange: (value: Partial<Pick<WorkflowStage, 'label' | 'kind'>>) => void; onMove: (offset: number) => void; onRemove: () => void; onChange: (value: Partial<Stage>) => void; editableStatus?: boolean }) {
   const [confirmRemove, setConfirmRemove] = useState(false)
-  const current = stage
-  return <div className="job-stage-form">{editableStatus && <div className="job-stage-editor-heading"><div className="job-stage-editor-fields"><label>阶段名称<input required maxLength={80} value={stage.label} onChange={event => onMetaChange({ label: event.target.value })} /></label><label>阶段类型<select value={stage.kind} onChange={event => onMetaChange({ kind: event.target.value as StageKind })}>{stageKinds.map(([kind, label]) => <option value={kind} key={kind}>{label}</option>)}</select></label></div><div className="job-stage-editor-actions"><IconButton icon={ArrowUp} label="上移阶段" variant="ghost" disabled={index <= 0} onClick={() => onMove(-1)} /><IconButton icon={ArrowDown} label="下移阶段" variant="ghost" disabled={index < 0 || index >= total - 1} onClick={() => onMove(1)} /><IconButton icon={Trash2} label="移除阶段" variant="ghost" onClick={() => setConfirmRemove(true)} /></div></div>}{confirmRemove && <div className="job-stage-remove-confirm" role="alert"><span>移除“{stage.label}”？已保存的阶段记录仍保留在历史中</span><Button size="small" onClick={() => setConfirmRemove(false)}>取消</Button><Button size="small" variant="danger" onClick={onRemove}>确认移除</Button></div>}<div className="job-section-title"><h4>{stage.label}</h4>{editableStatus && <select aria-label={`${stage.label}状态`} value={current.status} onChange={event => onChange({ status: event.target.value })}>{stageResultOptions.map(status => <option key={status}>{status}</option>)}</select>}</div><div className="job-form-grid">
-    <label>日期<input type="date" value={current.date} onChange={event => onChange({ date: event.target.value })} /></label>
-    <fieldset className="job-time-range-field"><legend>时间范围</legend><div className="job-time-range"><input aria-label="开始时间" type="time" value={current.time} onChange={event => onChange({ time: event.target.value })} /><span>至</span><input aria-label="结束时间" type="time" value={current.endTime} onChange={event => onChange({ endTime: event.target.value })} /></div></fieldset>
-    <label>形式 / 地点<input value={current.location} onChange={event => onChange({ location: event.target.value })} /></label>
-    <label>地址 / 链接<input value={current.link} onChange={event => onChange({ link: event.target.value })} /></label>
-    <StageRecordField title="阶段记录" value={current} onChange={onChange} />
-  </div></div>
+  return <div className="job-stage-form">
+    {editableStatus ? <div className="job-stage-editor-heading">
+      <div className="job-stage-editor-fields">
+        <label>阶段名称<input required maxLength={80} value={stage.label} onChange={event => onMetaChange({ label: event.target.value })} /></label>
+        <label>阶段类型<select value={stage.kind} onChange={event => onMetaChange({ kind: event.target.value as StageKind })}>{stageKinds.map(([kind, label]) => <option value={kind} key={kind}>{label}</option>)}</select></label>
+        <label>阶段状态<select aria-label={`${stage.label}状态`} value={stage.status} onChange={event => onChange({ status: event.target.value })}>{stageResultOptions.map(status => <option key={status}>{status}</option>)}</select></label>
+      </div>
+      <div className="job-stage-editor-actions">
+        <IconButton icon={ArrowUp} label="上移阶段" variant="ghost" disabled={index <= 0} onClick={() => onMove(-1)} />
+        <IconButton icon={ArrowDown} label="下移阶段" variant="ghost" disabled={index < 0 || index >= total - 1} onClick={() => onMove(1)} />
+        <IconButton icon={Trash2} label="移除阶段" variant="ghost" onClick={() => setConfirmRemove(true)} />
+      </div>
+    </div> : <div className="job-section-title"><h4>{stage.label}</h4></div>}
+    {confirmRemove && <div className="job-stage-remove-confirm" role="alert"><span>移除“{stage.label}”？已保存的阶段记录仍保留在历史中</span><Button size="small" onClick={() => setConfirmRemove(false)}>取消</Button><Button size="small" variant="danger" onClick={onRemove}>确认移除</Button></div>}
+    <fieldset className="job-stage-schedule">
+      {editableStatus && <legend>安排信息</legend>}
+      <div className="job-form-grid">
+        <label>日期<input type="date" value={stage.date} onChange={event => onChange({ date: event.target.value })} /></label>
+        <fieldset className="job-time-range-field"><legend>时间范围</legend><div className="job-time-range"><input aria-label="开始时间" type="time" value={stage.time} onChange={event => onChange({ time: event.target.value })} /><span>至</span><input aria-label="结束时间" type="time" value={stage.endTime} onChange={event => onChange({ endTime: event.target.value })} /></div></fieldset>
+        <label>形式 / 地点<input value={stage.location} onChange={event => onChange({ location: event.target.value })} /></label>
+        <label>地址 / 链接<input value={stage.link} onChange={event => onChange({ link: event.target.value })} /></label>
+      </div>
+    </fieldset>
+    <StageRecordField title="阶段记录" value={stage} onChange={onChange} />
+  </div>
 }
 
 function StageRecordField({ title, value, onChange }: { title: string; value: Stage; onChange: (value: Partial<Stage>) => void }) {

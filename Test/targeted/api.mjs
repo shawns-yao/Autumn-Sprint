@@ -13,8 +13,8 @@ let child
 let base
 let log = ''
 const results = []
-async function start() {
-  child = spawn(process.execPath, ['server.mjs'], { cwd: root, env: { ...process.env, DB_PATH: db, API_PORT: '0', NODE_ENV: 'test' }, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] })
+async function start(overrides = {}) {
+  child = spawn(process.execPath, ['server.mjs'], { cwd: root, env: { ...process.env, DB_PATH: db, API_HOST: '127.0.0.1', API_PORT: '0', APP_ORIGIN: '', AI_API_KEY: '', NODE_ENV: 'test', ...overrides }, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] })
   let startup = ''
   child.stdout.on('data', data => { startup += data })
   child.stderr.on('data', data => { log += data })
@@ -186,6 +186,45 @@ try {
     assert.equal(error.error.includes('secret-token'), false)
     await call('/api/ai/settings', 'POST', { ...savedConfig, baseUrl: 'javascript:alert(1)' }, 400)
     assert.equal((await call('/api/export')).settings.apiKey, undefined)
+  })
+  await check('环境变量密钥优先且不回传、不写入保存设置', async () => {
+    await stop()
+    await start({ AI_API_KEY: 'environment-test-token' })
+    const config = await call('/api/ai/settings')
+    assert.equal(config.hasApiKey, true)
+    assert.equal(config.apiKeySource, 'environment')
+    assert.equal('apiKey' in config, false)
+    const savedConfig = await call('/api/ai/settings', 'POST', { ...config, apiKey: '' })
+    assert.equal(savedConfig.apiKeySource, 'environment')
+    assert.equal(JSON.stringify(savedConfig).includes('environment-test-token'), false)
+    await call('/api/ai/test', 'POST', { ...savedConfig, apiKey: '' })
+    assert.equal(aiRequests.at(-1).authorization, 'Bearer environment-test-token')
+    await call('/api/ai/settings', 'POST', { ...savedConfig, apiKey: 'page-test-token' }, 400)
+    await call('/api/ai/settings', 'POST', { ...savedConfig, clearApiKey: true }, 400)
+    assert.equal(JSON.stringify(await call('/api/export')).includes('environment-test-token'), false)
+    await stop()
+    await start()
+    const restored = await call('/api/ai/settings')
+    assert.equal(restored.apiKeySource, 'stored')
+    await call('/api/ai/test', 'POST', { ...restored, apiKey: '' })
+    assert.equal(aiRequests.at(-1).authorization, 'Bearer secret-token')
+  })
+  await check('部署域名允许同源请求并拒绝其他主机和来源', async () => {
+    await stop()
+    await start({ APP_ORIGIN: 'https://jobs.example.com' })
+    const allowed = await fetch(base + '/api/workspace', { method: 'OPTIONS', headers: { Host: 'jobs.example.com', Origin: 'https://jobs.example.com' } })
+    assert.equal(allowed.status, 204)
+    assert.equal(allowed.headers.get('access-control-allow-origin'), 'https://jobs.example.com')
+    for (const headers of [
+      { Host: 'jobs.example.com', Origin: 'https://untrusted.example.com' },
+      { Host: 'jobs.example.com', Origin: 'http://127.0.0.1:5173' },
+      { Host: 'untrusted.example.com', Origin: 'https://jobs.example.com' },
+    ]) {
+      const response = await fetch(base + '/api/workspace', { method: 'OPTIONS', headers })
+      assert.equal(response.status, 403)
+    }
+    await stop()
+    await start()
   })
   await check('超过 100 条岗位完整加载及分页', async () => {
     for (let i = 0; i < 102; i++) await call('/api/applications', 'POST', app(`page-${i}`))

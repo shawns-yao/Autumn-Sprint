@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "api": "node server.mjs",
+    "api": "node --env-file-if-exists=.env server.mjs",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "db:import": "node scripts/import-obsidian.mjs",

@@ -6,6 +6,17 @@ import { HttpError, requireValue, integer, identifier } from './server/validatio
 import { listAiModels, testAiProvider } from './server/ai.mjs'
 
 const port = Number(process.env.API_PORT || 8787)
+const listenHost = process.env.API_HOST || '127.0.0.1'
+let publicOrigin
+if (process.env.APP_ORIGIN?.trim()) {
+  try {
+    publicOrigin = new URL(process.env.APP_ORIGIN.trim())
+    if (!['http:', 'https:'].includes(publicOrigin.protocol) || publicOrigin.username || publicOrigin.password || publicOrigin.pathname !== '/' || publicOrigin.search || publicOrigin.hash) throw new Error()
+  } catch {
+    throw new Error('APP_ORIGIN 必须是 HTTP 或 HTTPS 站点地址，不能包含账号、路径或查询参数')
+  }
+}
+const allowedHosts = new Set(['localhost', '127.0.0.1', ...(publicOrigin ? [publicOrigin.hostname] : [])])
 const db = openDatabase(path.resolve(process.env.DB_PATH || 'data/autumn-sprint.sqlite'))
 const store = createStore(db)
 
@@ -38,9 +49,9 @@ const server = http.createServer(async (req, res) => {
   res.setHeader('X-Content-Type-Options', 'nosniff')
   try {
     const host = new URL(`http://${req.headers.host}`).hostname
-    requireValue(['localhost', '127.0.0.1'].includes(host), '无效主机', 403)
+    requireValue(allowedHosts.has(host), '无效主机', 403)
     const origin = req.headers.origin
-    requireValue(!origin || /^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin), '不允许的来源', 403)
+    requireValue(!origin || (publicOrigin ? origin === publicOrigin.origin : /^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin)), '不允许的来源', 403)
     if (origin) { res.setHeader('Access-Control-Allow-Origin', origin); res.setHeader('Vary', 'Origin') }
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
     res.setHeader('Access-Control-Allow-Methods', 'GET,POST,DELETE,OPTIONS')
@@ -108,7 +119,7 @@ const server = http.createServer(async (req, res) => {
   }
 })
 server.requestTimeout = 30000
-server.listen(port, '127.0.0.1', () => console.log(`API ready: http://127.0.0.1:${server.address().port}`))
+server.listen(port, listenHost, () => console.log(`API ready: http://${listenHost}:${server.address().port}`))
 function shutdown() { server.close(() => { db.close(); process.exit(0) }); server.closeIdleConnections() }
 process.on('SIGTERM', shutdown)
 process.on('SIGINT', shutdown)

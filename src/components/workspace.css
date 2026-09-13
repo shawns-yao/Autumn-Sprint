@@ -21,7 +21,7 @@ body, .top-navigation.war-room { min-width: 320px; }
 
 .job-dialog .job-dialog-body { background: var(--ui-canvas) url('/images/home-landscape.webp') center bottom / 100% 220px no-repeat; }
 .job-dialog .job-dialog-tabs button[aria-selected="true"] { color: var(--ui-action); border-bottom-color: var(--ui-action); }
-.job-dialog .job-stage-add { align-items: flex-end; flex-wrap: wrap; gap: 12px; margin-bottom: 28px; }
+.job-dialog .job-stage-add { align-items: flex-end; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; padding-block: 16px; border-block: 1px solid var(--ui-border); }
 .job-stage-add > label { display: grid; gap: 7px; min-width: 140px; max-width: 100%; font-size: 12px; color: var(--ui-secondary); }
 .job-stage-add :is(input, select) { width: 100%; max-width: 260px; height: 40px; padding: 8px 10px; border: 1px solid var(--ui-border); border-radius: 7px; color: var(--ui-text); background: #fff; }
 .job-progress.editable { padding: 8px 14px 10px; }

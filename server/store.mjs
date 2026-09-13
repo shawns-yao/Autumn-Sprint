@@ -5,6 +5,7 @@ const emptyStage = () => ({ status: '未开始', date: '', time: '', endTime: ''
 const storageName = id => Object.hasOwn(stageMap, id) ? stageMap[id] : `node-${id}`
 const defaultSettings = { staleEnabled: true, staleDays: 7, interviewEnabled: true, interviewHours: 24, examEnabled: true, examHours: 6 }
 const defaultAiSettings = { providerName: '', note: '', website: '', baseUrl: '', model: '', protocol: 'responses', apiKey: '' }
+const environmentApiKey = (process.env.AI_API_KEY || '').trim()
 const now = () => new Date().toISOString()
 export function createStore(db) {
   function rawSettings() {
@@ -178,6 +179,7 @@ export function createStore(db) {
     requireValue(['responses', 'chat_completions'].includes(protocol), '接口格式只支持 Responses API 或 Chat Completions')
     const apiKeyInput = input.apiKey === undefined ? '' : text(input.apiKey, 'API Key', 4000)
     requireValue(input.clearApiKey === undefined || typeof input.clearApiKey === 'boolean', '清除密钥标记必须是布尔值')
+    requireValue(!environmentApiKey || (!apiKeyInput && !input.clearApiKey), 'API Key 由服务器环境变量管理，不能通过页面修改或清除')
     const result = {
       providerName: text(input.providerName ?? current.providerName, '供应商名称', 100, requireModel),
       note: text(input.note ?? current.note, '供应商备注', 300),
@@ -185,18 +187,21 @@ export function createStore(db) {
       baseUrl,
       model: text(input.model ?? current.model, '默认模型', 200, requireModel),
       protocol,
-      apiKey: input.clearApiKey ? '' : apiKeyInput || current.apiKey,
+      apiKey: environmentApiKey || (input.clearApiKey ? '' : apiKeyInput || current.apiKey),
     }
     return result
   }
   function publicAiSettings(value = { ...defaultAiSettings, ...(rawSettings().ai || {}) }) {
     const { apiKey, ...visible } = value
-    return { ...visible, hasApiKey: Boolean(apiKey) }
+    return { ...visible, hasApiKey: Boolean(environmentApiKey || apiKey), apiKeySource: environmentApiKey ? 'environment' : apiKey ? 'stored' : 'none' }
   }
   function aiSettings() { return publicAiSettings() }
   function saveAiSettings(input) {
     const value = resolveAiSettings(input)
-    writeSettings({ ...rawSettings(), ai: value })
+    const stored = rawSettings()
+    // Environment secrets stay in the process, not in the persisted settings.
+    const persisted = { ...value, apiKey: environmentApiKey ? stored.ai?.apiKey || '' : value.apiKey }
+    writeSettings({ ...stored, ai: persisted })
     return publicAiSettings(value)
   }
   function reminders(applications = readApplications().items) {

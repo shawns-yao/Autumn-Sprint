@@ -4,7 +4,7 @@ import { post, request } from '../api'
 import { Button, Heading, IconButton } from './Shared'
 
 type Settings = { staleEnabled: boolean; staleDays: number; interviewEnabled: boolean; interviewHours: number; examEnabled: boolean; examHours: number }
-type AiSettings = { providerName: string; note: string; website: string; baseUrl: string; model: string; protocol: 'responses' | 'chat_completions'; hasApiKey: boolean }
+type AiSettings = { providerName: string; note: string; website: string; baseUrl: string; model: string; protocol: 'responses' | 'chat_completions'; hasApiKey: boolean; apiKeySource?: 'environment' | 'stored' | 'none' }
 type AiTestResult = { ok: boolean; providerName: string; model: string; protocol: AiSettings['protocol']; latencyMs: number }
 
 export default function SettingsView({ onSaved }: { onSaved: () => void }) {
@@ -18,6 +18,7 @@ export default function SettingsView({ onSaved }: { onSaved: () => void }) {
   const [busy, setBusy] = useState(false)
   const [aiAction, setAiAction] = useState('')
   const [aiStatus, setAiStatus] = useState('')
+  const environmentKey = ai?.apiKeySource === 'environment'
 
   async function load() {
     setError('')
@@ -26,7 +27,10 @@ export default function SettingsView({ onSaved }: { onSaved: () => void }) {
       request<AiSettings>('/api/ai/settings'),
     ])
     if (reminderResult.status === 'fulfilled') setSettings(reminderResult.value)
-    if (aiResult.status === 'fulfilled') setAi(aiResult.value)
+    if (aiResult.status === 'fulfilled') {
+      setAi(aiResult.value)
+      if (aiResult.value.apiKeySource === 'environment') { setApiKey(''); setShowApiKey(false) }
+    }
     const failures = [reminderResult, aiResult].filter(result => result.status === 'rejected') as PromiseRejectedResult[]
     if (failures.length) setError(failures.map(result => result.reason instanceof Error ? result.reason.message : '设置加载失败').join('；'))
   }
@@ -42,7 +46,7 @@ export default function SettingsView({ onSaved }: { onSaved: () => void }) {
   async function runAiAction(action: 'save' | 'test' | 'models') {
     if (!ai || aiAction) return
     setAiAction(action); setError(''); setAiStatus('')
-    const payload = { ...ai, apiKey }
+    const payload = { ...ai, apiKey: environmentKey ? '' : apiKey }
     try {
       if (action === 'save') {
         const saved = await post<AiSettings>('/api/ai/settings', payload)
@@ -77,12 +81,12 @@ export default function SettingsView({ onSaved }: { onSaved: () => void }) {
       {ai ? <form className="ai-settings-form" onSubmit={event => { event.preventDefault(); void runAiAction('save') }}>
         <div className="ai-settings-grid" inert={Boolean(aiAction)}>
           <label className="ai-field-wide">供应商名称<input required maxLength={100} value={ai.providerName} onChange={event => setAi({ ...ai, providerName: event.target.value })} placeholder="例如 OpenAI、硅基流动或本地服务" /></label>
-          <label className="ai-field-wide">API Key<div className="ai-secret-field"><input type={showApiKey ? 'text' : 'password'} autoComplete="new-password" value={apiKey} onChange={event => setApiKey(event.target.value)} placeholder={ai.hasApiKey ? '已保存密钥，留空会继续使用原密钥' : '输入 API Key；不需要鉴权的本地服务可留空'} /><IconButton icon={showApiKey ? EyeOff : Eye} label={showApiKey ? '隐藏 API Key' : '显示 API Key'} variant="ghost" onClick={() => setShowApiKey(value => !value)} /></div><small>{ai.hasApiKey ? '后端已保存密钥，页面不会读取原文' : 'API Key 只发送到本地后端保存和调用'}</small></label>
+          <label className="ai-field-wide">API Key<div className="ai-secret-field"><input type={showApiKey ? 'text' : 'password'} autoComplete="new-password" value={apiKey} disabled={environmentKey} onChange={event => setApiKey(event.target.value)} placeholder={environmentKey ? '由服务器环境变量提供' : ai.hasApiKey ? '已保存密钥，留空会继续使用原密钥' : '输入 API Key；不需要鉴权的本地服务可留空'} />{!environmentKey && <IconButton icon={showApiKey ? EyeOff : Eye} label={showApiKey ? '隐藏 API Key' : '显示 API Key'} variant="ghost" onClick={() => setShowApiKey(value => !value)} />}</div><small>{environmentKey ? '密钥来源：服务器环境变量' : ai.hasApiKey ? '后端已保存密钥，页面不会读取原文' : 'API Key 只发送到本地后端保存和调用'}</small></label>
           <label className="ai-field-wide">API 基础地址<input required type="url" value={ai.baseUrl} onChange={event => setAi({ ...ai, baseUrl: event.target.value })} placeholder="例如 https://api.openai.com/v1" /><small>填写服务的 OpenAI 兼容基础地址，调用时会自动补充接口路径</small></label>
           <label className="ai-field-wide">默认模型<div className="ai-model-field"><input required list="ai-model-options" value={ai.model} onChange={event => setAi({ ...ai, model: event.target.value })} placeholder="例如 gpt-5 或服务商提供的模型名称" /><Button icon={ListRestart} disabled={Boolean(aiAction) || !ai.baseUrl} onClick={() => void runAiAction('models')}>{aiAction === 'models' ? '获取中…' : '获取模型'}</Button></div><datalist id="ai-model-options">{models.map(model => <option key={model} value={model} />)}</datalist></label>
           <label className="ai-field-wide">接口格式<select value={ai.protocol} onChange={event => setAi({ ...ai, protocol: event.target.value as AiSettings['protocol'] })}><option value="responses">Responses API</option><option value="chat_completions">Chat Completions</option></select><small>根据服务商支持的 OpenAI 接口格式选择；测试连接会发送一次最小请求</small></label>
         </div>
-        <footer className="ai-settings-actions"><span className={aiStatus.startsWith('连接成功') || aiStatus.startsWith('已获取') || aiStatus.startsWith('AI 配置') ? 'success' : ''} role="status">{aiStatus || (ai.hasApiKey ? '已保存 API Key' : '尚未保存 API Key')}</span><Button icon={PlugZap} disabled={Boolean(aiAction)} onClick={() => void runAiAction('test')}>{aiAction === 'test' ? '测试中…' : '测试连接'}</Button><Button icon={Save} type="submit" variant="primary" disabled={Boolean(aiAction)}>{aiAction === 'save' ? '保存中…' : '保存配置'}</Button></footer>
+        <footer className="ai-settings-actions"><span className={aiStatus.startsWith('连接成功') || aiStatus.startsWith('已获取') || aiStatus.startsWith('AI 配置') ? 'success' : ''} role="status">{aiStatus || (environmentKey ? '已配置环境变量密钥' : ai.hasApiKey ? '已保存 API Key' : '尚未保存 API Key')}</span><Button icon={PlugZap} disabled={Boolean(aiAction)} onClick={() => void runAiAction('test')}>{aiAction === 'test' ? '测试中…' : '测试连接'}</Button><Button icon={Save} type="submit" variant="primary" disabled={Boolean(aiAction)}>{aiAction === 'save' ? '保存中…' : '保存配置'}</Button></footer>
       </form> : <p>AI 配置尚未加载</p>}
     </section>
     <section className="settings-card"><header className="settings-card-heading"><span className="settings-card-icon reminder"><BellRing size={20} /></span><div><h2>站内提醒</h2><p>按你的求职节奏设置待办提醒</p></div></header>{settings ? <fieldset disabled={busy}>

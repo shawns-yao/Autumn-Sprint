@@ -9,9 +9,12 @@ import { safeUrl, type Stage } from '../model'
 import { IconButton } from './Shared'
 import './review.css'
 
-type Props = { value: Stage; onChange: (value: Partial<Stage>) => void; label?: string; compact?: boolean }
+type Props = { value: Stage; label?: string; compact?: boolean } & (
+  | { readOnly: true; onChange?: never }
+  | { readOnly?: false; onChange: (value: Partial<Stage>) => void }
+)
 
-export default function ReviewEditor({ value, onChange, label = '复盘正文', compact = false }: Props) {
+export default function ReviewEditor({ value, onChange, label = '复盘正文', compact = false, readOnly = false }: Props) {
   const [expanded, setExpanded] = useState(false)
   const [initial] = useState(() => ({
     content: value.review?.html ?? [value.requirements, value.notes].filter(Boolean).join('\n\n'),
@@ -21,7 +24,7 @@ export default function ReviewEditor({ value, onChange, label = '复盘正文', 
     extensions: [
       StarterKit.configure({
         heading: { levels: [1, 2, 3] },
-        link: { openOnClick: false, isAllowedUri: value => Boolean(safeUrl(value)) },
+        link: { openOnClick: readOnly, isAllowedUri: value => Boolean(safeUrl(value)) },
         trailingNode: false,
       }),
       Highlight,
@@ -29,12 +32,17 @@ export default function ReviewEditor({ value, onChange, label = '复盘正文', 
       Markdown,
     ],
     ...initial,
-    editorProps: { attributes: { role: 'textbox', 'aria-label': label, 'aria-multiline': 'true', spellcheck: 'false' } },
-    onUpdate: ({ editor }) => onChange({
-      requirements: '',
-      notes: editor.getMarkdown(),
-      review: { tags: value.review?.tags || [], html: editor.getHTML() },
-    }),
+    editable: !readOnly,
+    editorProps: { attributes: readOnly
+      ? { role: 'document', 'aria-label': label }
+      : { role: 'textbox', 'aria-label': label, 'aria-multiline': 'true', spellcheck: 'false' } },
+    onUpdate: ({ editor }) => {
+      if (!readOnly) onChange?.({
+        requirements: '',
+        notes: editor.getMarkdown(),
+        review: { tags: value.review?.tags || [], html: editor.getHTML() },
+      })
+    },
   })
   const state = useEditorState({
     editor,
@@ -51,6 +59,10 @@ export default function ReviewEditor({ value, onChange, label = '复盘正文', 
       redo: editor.can().redo(),
     }),
   })
+
+  if (readOnly) return <div className="stage-record-preview">
+    {editor.isEmpty ? <p className="stage-record-empty">暂无阶段记录</p> : <EditorContent editor={editor} className="review-content" />}
+  </div>
 
   return <div className={`stage-rich-editor ${compact ? 'compact' : ''} ${expanded ? 'is-expanded' : ''}`} onKeyDownCapture={event => {
     if (event.key === 'Escape' && expanded) { event.preventDefault(); event.stopPropagation(); setExpanded(false) }

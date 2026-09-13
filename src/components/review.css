@@ -46,6 +46,9 @@
 .review-content .tiptap a { color: var(--ui-blue); text-decoration: underline; }
 .review-content .tiptap hr { border: 0; border-top: 1px solid var(--ui-border); margin-block: 20px; }
 .stage-rich-editor.compact .review-content, .stage-rich-editor.compact .tiptap { min-height: 200px; }
+.stage-record-preview .review-content, .stage-record-preview .review-content .tiptap { min-height: 0; }
+.stage-record-preview .review-content .tiptap { padding: 0; }
+.stage-record-empty { margin: 0; color: var(--ui-muted); font-size: 14px; line-height: 1.85; }
 .job-dialog:has(.stage-rich-editor.is-expanded) { width: calc(100vw - 24px); height: calc(100dvh - 24px); }
 .job-dialog:has(.stage-rich-editor.is-expanded) :is(.job-dialog-header, .job-dialog-tabs, .job-review-metadata, .review-record-heading) { display: none; }
 .job-dialog:has(.stage-rich-editor.is-expanded) .job-dialog-body { padding: 12px; overflow: hidden; }
