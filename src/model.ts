@@ -24,6 +24,7 @@ const legacyStageFields = [['initialScreening', '初筛'], ['evaluation', '测�
 const stageKindFor = (id: string): StageKind => id === 'initialScreening' ? 'screening' : ['evaluation', 'written'].includes(id) ? 'exam' : 'interview'
 const stagesFromFields = (fields: readonly (readonly [string, string])[]): WorkflowStage[] => fields.map(([id, label]) => ({ ...emptyStage(), id, label, kind: stageKindFor(id) }))
 export type StageKey = string
+export const stageProgressLabel = (stage?: Pick<WorkflowStage, 'label' | 'status'>) => stage?.status === '进行中' ? `${stage.label}中` : stage?.label || ''
 export const workflowFor = (app: Application): WorkflowStage[] => app.workflow ?? stagesFromFields(legacyStageFields).map(stage => ({ ...stage, ...((app as unknown as Record<string, Stage | undefined>)[stage.id] || {}) }))
 export const getStage = (app: Application, key: StageKey): Stage => workflowFor(app).find(stage => stage.id === key) || emptyStage()
 export const normalizedStatus = (app: Application) => {
@@ -34,12 +35,14 @@ export const lifecycle = (app: Application) => app.terminated || app.status === 
 export const priorityLabel = (value: string) => value === '高' ? '核心目标' : value === '低' ? '低优先级' : '中优先级'
 export const emptyStage = (): Stage => ({ status: '未开始', date: '', time: '', endTime: '', location: '', link: '', requirements: '', notes: '' })
 export const timeRange = (value: { time: string; endTime?: string }) => value.endTime ? `${value.time} - ${value.endTime}` : value.time
+export const localDate = (value = new Date()) => `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`
 const completedBeforeAutoStart = new Set(['已完成', '跳过', '已取消'])
 export function advanceWorkflow(workflow: WorkflowStage[]) {
   const next = workflow.map(stage => ({ ...stage }))
+  for (const stage of next) if (stage.status === '进行中' && !stage.date) stage.date = localDate()
   if (next.some(stage => ['进行中', '已安排'].includes(stage.status))) return next
   const nextIndex = next.findIndex((stage, index) => stage.status === '未开始' && next.slice(0, index).every(previous => completedBeforeAutoStart.has(previous.status)))
-  if (nextIndex >= 0) next[nextIndex] = { ...next[nextIndex], status: '进行中' }
+  if (nextIndex >= 0) next[nextIndex] = { ...next[nextIndex], status: '进行中', date: next[nextIndex].date || localDate() }
   return next
 }
 export function currentWorkflowStage(app: Application) {
@@ -59,10 +62,9 @@ export function withWorkflow(app: Application, workflow: WorkflowStage[]): Appli
   const status = outcome ? outcome.status === '已终止' ? '终止' : outcome.status === '未通过' ? '拒绝' : 'Offer' : active?.label || nextWorkflow[0]?.label || '初筛'
   return { ...app, workflow: nextWorkflow, status, currentStageId: active?.id || '', terminated: status === '终止' }
 }
-export const localDate = (value = new Date()) => `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`
 export const isClosed = (app: Application) => app.terminated || ['拒绝', '终止'].includes(app.status)
 export function makeApplication(): Application {
-  const workflow = stagesFromFields(stageFields).map((stage, index) => index === 0 ? { ...stage, status: '进行中' } : stage)
+  const workflow = stagesFromFields(stageFields).map((stage, index) => index === 0 ? { ...stage, status: '进行中', date: localDate() } : stage)
   return { id: crypto.randomUUID(), company: '', title: '', city: '', status: '初筛', applied: localDate(), source: '官网', website: '', priority: '中', jd: '', resume: '', terminated: false, workflow, currentStageId: 'initialScreening' }
 }
 export const volunteerOrderOf = (app: Application) => Number.isInteger(app.volunteerOrder) && (app.volunteerOrder as number) >= 0 ? app.volunteerOrder as number : Number.MAX_SAFE_INTEGER

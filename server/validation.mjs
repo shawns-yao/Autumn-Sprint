@@ -2,11 +2,22 @@ export const stageMap = { initialScreening: '初筛', evaluation: '测评', writ
 export const stageKind = key => key === 'initialScreening' ? 'screening' : ['evaluation', 'written'].includes(key) ? 'exam' : 'interview'
 export const statuses = ['已投递', ...Object.values(stageMap), 'Offer', '拒绝', '终止']
 export const stageStatuses = ['未开始', '进行中', '已安排', '已完成', '未通过', '已终止', '已获 Offer', '跳过', '已取消']
+const localDate = () => {
+  const current = new Date()
+  return new Date(current.getTime() - current.getTimezoneOffset() * 60000).toISOString().slice(0, 10)
+}
 const completedBeforeAutoStart = new Set(['已完成', '跳过', '已取消'])
+function startStage(stage) {
+  if (stage.status === '进行中' && !stage.date) stage.date = localDate()
+}
 function advanceStages(stages) {
+  stages.forEach(startStage)
   if (stages.some(stage => ['进行中', '已安排'].includes(stage.status))) return
   const nextIndex = stages.findIndex((stage, index) => stage.status === '未开始' && stages.slice(0, index).every(previous => completedBeforeAutoStart.has(previous.status)))
-  if (nextIndex >= 0) stages[nextIndex].status = '进行中'
+  if (nextIndex >= 0) {
+    stages[nextIndex].status = '进行中'
+    startStage(stages[nextIndex])
+  }
 }
 export class HttpError extends Error { constructor(status, message) { super(message); this.status = status } }
 export function requireValue(condition, message, status = 400) { if (!condition) throw new HttpError(status, message) }
@@ -57,7 +68,12 @@ export function application(input) {
   requireValue(['高', '中', '低'].includes(result.priority), '无效的优先级')
   const custom = input.workflow !== undefined
   if (custom) requireValue(Array.isArray(input.workflow) && input.workflow.length <= 40, '招聘流程最多包含 40 个阶段')
-  const nodes = custom ? input.workflow : Object.entries(stageMap).map(([id, label]) => ({ ...object(input[id] || {}), id, label, kind: stageKind(id) }))
+  const nodes = (custom ? input.workflow : Object.entries(stageMap).map(([id, label]) => ({ ...object(input[id] || {}), id, label, kind: stageKind(id) }))).map(node => {
+    const stage = object(node)
+    return { ...stage, status: stage.status || '未开始' }
+  })
+  const hasOutcome = nodes.some(stage => ['已终止', '已获 Offer', '未通过'].includes(stage.status))
+  if (!hasOutcome) advanceStages(nodes)
   const ids = new Set()
   const labels = new Set()
   const stages = nodes.map(node => {
@@ -68,7 +84,7 @@ export function application(input) {
     requireValue(!['已投递', '投递', 'Offer', '拒绝', '终止'].includes(label), '阶段名称不能使用岗位整体状态')
     requireValue(['screening', 'exam', 'interview', 'other'].includes(stage.kind), `${label}类型无效`)
     ids.add(id); labels.add(label)
-    const status = stage.status || '未开始'
+    const status = stage.status
     requireValue(stageStatuses.includes(status), `${label}结果无效`)
     const value = { id, label, kind: stage.kind, status, date: date(stage.date, `${label}日期`), time: text(stage.time, `${label}开始时间`, 5), endTime: text(stage.endTime, `${label}结束时间`, 5),
       location: text(stage.location, `${label}地点`, 500), link: url(stage.link, `${label}链接`),
@@ -88,7 +104,6 @@ export function application(input) {
   const stageTerminated = stages.some(stage => stage.status === '已终止')
   const stageOffered = stages.some(stage => stage.status === '已获 Offer')
   const stageFailed = stages.some(stage => stage.status === '未通过')
-  if (!stageTerminated && !stageOffered && !stageFailed) advanceStages(stages)
   const activeStage = stages.find(stage => ['已安排', '进行中'].includes(stage.status)) || [...stages].reverse().find(stage => stage.status === '已完成') || stages.find(stage => stage.id === input.currentStageId && stage.label === result.status && stage.status === '未开始')
   requireValue(!(stageOffered && (stageTerminated || stageFailed)), '岗位不能同时标记为结束和 Offer')
   const inferredTermination = stageTerminated && result.status !== '终止'

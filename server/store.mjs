@@ -7,6 +7,10 @@ const defaultSettings = { staleEnabled: true, staleDays: 7, interviewEnabled: tr
 const defaultAiSettings = { providerName: '', note: '', website: '', baseUrl: '', model: '', protocol: 'responses', apiKey: '' }
 const environmentApiKey = (process.env.AI_API_KEY || '').trim()
 const now = () => new Date().toISOString()
+const localDate = () => {
+  const current = new Date()
+  return new Date(current.getTime() - current.getTimezoneOffset() * 60000).toISOString().slice(0, 10)
+}
 export function createStore(db) {
   function rawSettings() {
     const value = db.prepare('SELECT value_json FROM app_settings WHERE id=1').get()?.value_json
@@ -41,7 +45,7 @@ export function createStore(db) {
         : Object.entries(stageMap).map(([id, label]) => ({ ...legacy[id], id, label, kind: stageKind(id) }))
       const storedStatus = row.status === '技术面' && !metadata ? '一面' : row.status === '已投递' ? '初筛' : row.status
       const hasProgress = workflow.some(stage => stage.status !== '未开始')
-      if (row.status === '已投递' && !metadata?.currentStageId && !hasProgress && workflow[0]) workflow = workflow.map((stage, index) => index === 0 ? { ...stage, status: '进行中' } : stage)
+      if (row.status === '已投递' && !metadata?.currentStageId && !hasProgress && workflow[0]) workflow = workflow.map((stage, index) => index === 0 ? { ...stage, status: '进行中', date: stage.date || localDate() } : stage)
       const currentStageId = metadata?.currentStageId || (workflow.find(stage => ['已终止', '未通过', '已获 Offer'].includes(stage.status)) || workflow.find(stage => stage.label === storedStatus || (row.status === '技术面' && stage.id === 'firstInterview')))?.id || ''
       return {
         id: row.id, company: row.company_name, title: row.title || '', city: row.city || '', status: storedStatus,
@@ -85,7 +89,9 @@ export function createStore(db) {
         WHERE company_id=@companyId AND deleted_at IS NULL
           AND id IN (SELECT value FROM json_each(@orderJson))`).run({ orderJson, currentId: value.id, updatedAt, companyId })
     }
-    const stages = value.workflow ? value.workflow.map(node => ({ ...node, name: storageName(node.id) })) : Object.entries(stageMap).filter(([key]) => key !== 'initialScreening' || Boolean(input[key] && (Object.entries(input[key]).some(([field, item]) => field !== 'status' && item) || input[key].status !== '未开始'))).map(([key, name]) => ({ ...value[key], name }))
+    const stages = value.workflow ? value.workflow.map(node => ({ ...node, name: storageName(node.id) })) : Object.entries(stageMap)
+      .filter(([key]) => key !== 'initialScreening' || Boolean(value[key] && (Object.entries(value[key]).some(([field, item]) => field !== 'status' && item) || value[key].status !== '未开始')))
+      .map(([key, name]) => ({ ...value[key], name }))
     db.prepare(`INSERT INTO application_stages(application_id,stage_name,status,date,time,end_time,location,link,requirements,notes)
       SELECT @id,json_extract(value,'$.name'),json_extract(value,'$.status'),json_extract(value,'$.date'),json_extract(value,'$.time'),
         json_extract(value,'$.endTime'),json_extract(value,'$.location'),json_extract(value,'$.link'),json_extract(value,'$.requirements'),json_extract(value,'$.notes')

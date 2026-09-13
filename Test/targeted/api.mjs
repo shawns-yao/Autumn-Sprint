@@ -42,6 +42,10 @@ async function check(name, action) {
   console.log(`PASS ${name}`)
 }
 const blank = () => ({ status: '未开始', date: '', time: '', endTime: '', location: '', link: '', requirements: '', notes: '' })
+const localDate = () => {
+  const current = new Date()
+  return `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, '0')}-${String(current.getDate()).padStart(2, '0')}`
+}
 const legacy = ({ workflow, currentStageId, initialScreening, ...value }) => value
 const app = id => ({ id, company: `定向样本-${id}`, title: '', city: '', status: '已投递', applied: '2026-09-01', source: '定向测试', website: '', priority: '中', resume: '', jd: '', terminated: false,
   evaluation: blank(), written: blank(), aiInterview: blank(), firstInterview: blank(), secondInterview: blank(), thirdInterview: blank(), hrInterview: blank() })
@@ -95,6 +99,7 @@ try {
   await check('真实保存且不填充虚构简历', async () => {
     saved = await call('/api/applications', 'POST', app('primary'))
     assert.equal(saved.resume, ''); assert.equal(saved.title, ''); assert.equal(saved.revision, 1)
+    assert.equal(saved.initialScreening.status, '进行中'); assert.equal(saved.initialScreening.date, localDate())
   })
   await check('同公司岗位软删除不影响其他岗位', async () => {
     const sibling = await call('/api/applications', 'POST', { ...app('sibling'), company: saved.company, title: '同公司岗位' })
@@ -153,9 +158,12 @@ try {
   await check('初筛拒绝与终止无须虚构测评记录', async () => {
     const workflow = [{ ...blank(), id: 'screen', label: '初筛', kind: 'screening', status: '未通过', notes: '未收到测评通知，初筛未通过' }, { ...blank(), id: 'exam', label: '测评', kind: 'exam' }]
     saved = await call('/api/applications', 'POST', { ...saved, status: '已投递', terminated: false, workflow: workflow.map(stage => stage.id === 'screen' ? { ...stage, status: '进行中' } : stage) })
-    assert.equal(saved.status, '初筛'); assert.equal(saved.currentStageId, 'screen')
-    const progressed = await call('/api/applications', 'POST', { ...saved, status: '初筛', workflow: saved.workflow.map(stage => stage.id === 'screen' ? { ...stage, status: '已完成' } : stage) })
-    assert.equal(progressed.status, '测评'); assert.equal(progressed.currentStageId, 'exam'); assert.equal(progressed.workflow[1].status, '进行中')
+    assert.equal(saved.status, '初筛'); assert.equal(saved.currentStageId, 'screen'); assert.equal(saved.workflow[0].date, localDate())
+    const preservedDate = '2026-09-05'
+    saved = await call('/api/applications', 'POST', { ...saved, workflow: saved.workflow.map(stage => stage.id === 'screen' ? { ...stage, date: preservedDate } : stage) })
+    assert.equal(saved.workflow[0].date, preservedDate)
+    saved = await call('/api/applications', 'POST', { ...saved, status: '初筛', workflow: saved.workflow.map(stage => stage.id === 'screen' ? { ...stage, status: '已完成' } : stage) })
+    assert.equal(saved.status, '测评'); assert.equal(saved.currentStageId, 'exam'); assert.equal(saved.workflow[1].status, '进行中'); assert.equal(saved.workflow[1].date, localDate())
     saved = await call('/api/applications', 'POST', { ...saved, workflow })
     assert.equal(saved.status, '拒绝'); assert.equal(saved.currentStageId, 'screen')
     assert.equal(saved.workflow[1].status, '未开始')
