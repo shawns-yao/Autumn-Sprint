@@ -1,18 +1,20 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { BarChart3, CalendarDays, ChevronRight, ClipboardList, Filter, Send, TrendingUp, Trophy, CircleX } from 'lucide-react'
 import { eventsFor, isClosed, localDate, recruitmentFunnel, type Application, type View } from '../model'
+import { Heading } from './Shared'
 import './overview.css'
 
 type Props = {
   apps: Application[]
   onOpen: (app: Application) => void
   onView: (view: View) => void
+  action?: ReactNode
 }
 
 const stages = ['已投递', '测评', '笔试', 'AI 面试', '一面', '二面', '三面', 'HR 面']
 const colors = ['#3e78d8', '#61a5dd', '#3da58c', '#68a8a0', '#d99a3c', '#df7668', '#b87943', '#cb637f']
 
-export default function Overview({ apps, onOpen, onView }: Props) {
+export default function Overview({ apps, onOpen, onView, action }: Props) {
   const [company, setCompany] = useState('')
   const now = new Date()
   const today = localDate(now)
@@ -41,11 +43,7 @@ export default function Overview({ apps, onOpen, onView }: Props) {
     { label: 'Offer', value: offers.length, note: '当前已获得', icon: Trophy, tone: 'amber' },
   ]
   return <section className="home-dashboard">
-    <header className="home-heading">
-      <p className="home-date">{now.toLocaleDateString('en-GB', { weekday: 'long' }).toUpperCase()} / {now.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase()}</p>
-      <h1>秋招总览</h1>
-      <p>这里汇总了你秋招的整体进展，保持专注，继续加油！</p>
-    </header>
+    <Heading className="home-heading" title="秋招总览" eyebrow={`${now.toLocaleDateString('en-GB', { weekday: 'long' }).toUpperCase()} / ${now.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase()}`} meta="这里汇总了你秋招的整体进展，保持专注，继续加油！" action={action} />
     <div className="home-metrics">
       {metrics.map(({ label, value, note, icon: Icon, tone }) => <button key={label} className="home-metric" onClick={() => onView('applications')}>
         <span className={`home-metric-icon ${tone}`}><Icon size={29} strokeWidth={1.8} /></span>

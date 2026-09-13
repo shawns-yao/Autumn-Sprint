@@ -1,6 +1,7 @@
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode } from 'react'
 import { Check, ChevronLeft, ChevronRight, Inbox, Search, type LucideIcon } from 'lucide-react'
 import { statuses, type Application } from '../model'
+import HomeFlight from './HomeFlight'
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: 'primary' | 'secondary' | 'danger' | 'ghost' | 'selected'
@@ -20,8 +21,8 @@ export function SearchField({ label, className = '', ...props }: Omit<InputHTMLA
   return <label className={`ui-search ${className}`}><Search size={17} aria-hidden="true" /><input {...props} type="search" aria-label={label} /></label>
 }
 
-export function Heading({ title, meta, action, className = '' }: { title: string; meta?: string; action?: ReactNode; className?: string }) {
-  return <header className={`ui-page-heading ${className}`}><div><h1>{title}</h1>{meta && <p>{meta}</p>}</div>{action && <div className="ui-page-actions">{action}</div>}</header>
+export function Heading({ title, meta, eyebrow, action, className = '' }: { title: string; meta?: string; eyebrow?: string; action?: ReactNode; className?: string }) {
+  return <header className={`ui-page-heading ${className}`}><div className="ui-page-heading-copy">{eyebrow && <p className="ui-page-eyebrow">{eyebrow}</p>}<h1>{title}</h1>{meta && <p>{meta}</p>}</div><div className="page-heading-flight"><HomeFlight variant="header" /></div>{action && <div className="ui-page-actions">{action}</div>}</header>
 }
 export function CompanyMark({ name }: { name: string }) {
   const color = [...name].reduce((sum, char) => sum + char.charCodeAt(0), 0) % 5

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { CalendarDays, LayoutGrid, List, MapPin } from 'lucide-react'
 import { lifecycle, nextEvent, normalizedStatus, relativeDate, statuses, type Application } from '../model'
 import { Button, CompanyMark, Empty, Heading, IconButton, Pagination, SearchField } from './Shared'
@@ -8,10 +8,11 @@ import './applications.css'
 type Props = {
   apps: Application[]; query: string; setQuery: (value: string) => void; selectedId?: string | number
   onOpen: (app: Application) => void; onCreate: () => void
+  action?: ReactNode
 }
 const citiesFor = (app: Application) => app.city.split(/[/、,，]/).map(value => value.trim()).filter(Boolean)
 
-export default function Applications({ apps, query, setQuery, selectedId, onOpen }: Props) {
+export default function Applications({ apps, query, setQuery, selectedId, onOpen, action }: Props) {
   const [status, setStatus] = useState('')
   const [stage, setStage] = useState('')
   const [city, setCity] = useState('')
@@ -34,7 +35,7 @@ export default function Applications({ apps, query, setQuery, selectedId, onOpen
   const identity = (app: Application) => <div className="job-identity"><CompanyMark name={app.company} /><div><strong>{app.company}</strong><span title={app.title}>{app.title || '岗位名称待补充'}</span></div></div>
 
   return <section className="jobs-page">
-    <Heading className="jobs-heading" title="岗位" meta="记录每一个机会，走好秋招的每一步。" />
+    <Heading className="jobs-heading" title="岗位" meta="记录每一个机会，走好秋招的每一步。" action={action} />
     <div className="jobs-toolbar">
       <SearchField className="jobs-search" label="搜索岗位" placeholder="搜索公司、岗位、来源…" value={query} onChange={event => change(setQuery, event.target.value)} />
       <select aria-label="岗位状态筛选" value={status} onChange={event => change(setStatus, event.target.value)}><option value="">全部状态</option>{['进行中', '已终止', '已结束', 'Offer'].map(value => <option key={value}>{value}</option>)}</select>

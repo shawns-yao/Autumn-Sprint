@@ -1,0 +1,122 @@
+body, .top-navigation.war-room { min-width: 320px; }
+.top-navigation .workspace-page { position: relative; isolation: isolate; background: transparent; }
+.workspace-scenery { position: fixed; z-index: -1; inset: 74px 0 0; background: var(--ui-canvas) url('/images/home-landscape.webp') center bottom / 100% 350px no-repeat; pointer-events: none; }
+.top-navigation .notes-page { background: transparent; }
+.top-navigation.war-room .site-header { grid-template-columns: minmax(220px, 1fr) auto minmax(0, 1fr); border-color: #edf3f0; box-shadow: 0 3px 18px #2e584407; }
+.top-navigation.war-room .site-header nav { background: transparent; border-color: transparent; padding: 0; gap: 8px; }
+.top-navigation.war-room .site-header nav button { min-height: 40px; padding-inline: 16px; border-radius: 24px; color: #73828b; }
+.top-navigation.war-room .site-header nav button[aria-current] { background: #e8f7f1; color: #147b61; box-shadow: none; }
+
+.workspace-page .ui-page-heading { align-items: center; gap: 20px; min-height: 108px; margin-bottom: 20px; padding: 0; }
+.ui-page-heading-copy { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.ui-page-heading .ui-page-eyebrow { margin-bottom: 8px; font-size: 11px; color: var(--ui-muted); }
+.workspace-page .ui-page-actions, .workspace-page .top-actions { gap: 10px; margin-left: 0; }
+.page-heading-flight { position: relative; width: 220px; height: 92px; flex-shrink: 0; margin-left: auto; overflow: hidden; pointer-events: none; }
+.page-heading-flight .welcome-flight { z-index: 0; }
+.page-heading-flight .welcome-flight-plane { width: 56px; }
+.workspace-page .home-heading { min-height: 112px; }
+.workspace-page .notes-header-actions { padding: 0; gap: 10px; }
+.workspace-page .jobs-heading { min-height: 108px; }
+.dialog-loading { position: fixed; z-index: 40; inset: auto 24px 24px auto; padding: 12px 18px; border: 1px solid var(--ui-border); border-radius: 7px; background: #fff; box-shadow: 0 8px 24px #203a2f18; }
+
+.job-dialog .job-dialog-body { background: var(--ui-canvas) url('/images/home-landscape.webp') center bottom / 100% 220px no-repeat; }
+.job-dialog .job-dialog-tabs button[aria-selected="true"] { color: var(--ui-action); border-bottom-color: var(--ui-action); }
+.job-dialog .job-stage-add { align-items: flex-end; flex-wrap: wrap; gap: 12px; margin-bottom: 28px; }
+.job-stage-add > label { display: grid; gap: 7px; min-width: 140px; max-width: 100%; font-size: 12px; color: var(--ui-secondary); }
+.job-stage-add :is(input, select) { width: 100%; max-width: 260px; height: 40px; padding: 8px 10px; border: 1px solid var(--ui-border); border-radius: 7px; color: var(--ui-text); background: #fff; }
+.job-progress.editable { padding: 8px 14px 10px; }
+.job-step-insert { position: absolute; z-index: 2; top: -2px; right: -12px; display: grid; place-items: center; width: 24px; height: 24px; padding: 0; border: 1px solid #c9ded4; border-radius: 50%; background: #f6fbf8; color: #387c65; }
+.job-step-insert:hover { background: #e4f4ed; border-color: #88b9a5; }
+.job-stage-editor-fields { min-width: 0; }
+.job-step-label { overflow-wrap: anywhere; }
+.job-dialog-meta a { word-break: break-all; }
+
+@media (min-width: 1101px) and (max-width: 1280px) {
+  .workspace-page .jobs-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .page-heading-flight { width: 168px; }
+}
+@media (min-width: 1600px) {
+  .workspace-scenery { background-size: 100% 390px; }
+}
+@media (max-width: 1100px) {
+  .top-navigation.war-room .site-header { grid-template-columns: auto 1fr; gap: 20px; padding-inline: 24px; }
+  .top-navigation.war-room .site-header nav { justify-self: end; gap: 2px; }
+  .top-navigation.war-room .site-header nav button { padding-inline: 11px; }
+  .workspace-page .ui-page-heading:has(.ui-page-actions) { flex-wrap: wrap; }
+  .workspace-page .ui-page-actions { flex-basis: 100%; justify-content: flex-end; }
+  .workspace-page .top-actions, .notes-header-actions { width: 100%; }
+  .workspace-page .top-actions > .ui-search, .notes-header-actions > .ui-search { flex: 1; width: auto; }
+  .settings-card { grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); }
+  .notes-workspace { grid-template-columns: minmax(250px, .8fr) minmax(0, 1.2fr); }
+  .notes-page { min-height: 780px; }
+}
+@media (max-width: 760px) {
+  .top-navigation.war-room .site-header { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; padding: 10px 16px 8px; }
+  .top-navigation.war-room .site-header nav { width: 100%; min-height: 40px; justify-content: center; flex-wrap: wrap; gap: 2px; }
+  .top-navigation.war-room .site-header nav button { padding-inline: 10px; gap: 5px; font-size: 12px; }
+  .top-navigation.war-room .site-brand img { width: 30px; height: 34px; }
+  .top-navigation.war-room .site-brand strong { font-size: 18px; }
+  .workspace-scenery { background-size: auto 240px; }
+  .top-navigation :is(.home-dashboard, .jobs-page, .notes-page, .resources-page, .settings-page) { padding: 20px 16px 32px; }
+  .workspace-page .ui-page-heading { gap: 12px; min-height: 88px; }
+  .ui-page-heading h1 { font-size: 26px; }
+  .page-heading-flight { width: 130px; height: 82px; }
+  .ui-page-heading-copy { flex-basis: 150px; }
+  .workspace-page .ui-page-actions { min-width: 0; }
+  .workspace-page .top-actions, .notes-header-actions { gap: 8px; flex-wrap: wrap; }
+  .workspace-page .top-actions > .ui-search, .notes-header-actions > .ui-search { flex-basis: 100%; }
+  .home-metric { gap: 10px; padding: 14px 12px; min-height: 110px; }
+  .home-metric-icon { width: 36px; height: 36px; }
+  .home-metric-icon svg { width: 22px; height: 22px; }
+  .home-metric > svg { display: none; }
+  .home-metric-text strong { font-size: 27px; }
+  .home-event { grid-template-columns: 55px 8px minmax(0, 1fr) 14px; gap: 8px; }
+  .home-event .home-weekday { display: none; }
+  .home-funnel-row { grid-template-columns: minmax(0, 1fr) 85px; }
+  .home-month-total { white-space: normal; }
+  .jobs-grid { grid-template-columns: minmax(0, 1fr); }
+  .jobs-toolbar > .jobs-search { width: 100%; }
+  .jobs-toolbar > select { max-width: 100%; flex: 1 1 125px; }
+  .pagination { flex-wrap: wrap; gap: 12px; }
+  .pagination-actions { flex-wrap: wrap; }
+  .notes-page { height: auto; min-height: 0; overflow: visible; }
+  .notes-workspace { grid-template-columns: minmax(0, 1fr); overflow: visible; }
+  .notes-list-pane { height: 280px; }
+  .notes-reader { min-height: 430px; height: min(740px, 90dvh); padding: 18px; }
+  .notes-reader-header { flex-wrap: wrap; }
+  .notes-reader-header h2 { flex-basis: 100%; }
+  .notes-reader-empty { min-height: 260px; }
+  .settings-card { grid-template-columns: minmax(0, 1fr); gap: 20px; padding: 18px; }
+  .settings-ai-card { padding: 0; }
+  .settings-ai-heading { padding: 18px; flex-wrap: wrap; gap: 12px; }
+  .ai-settings-form { padding: 18px; }
+  .ai-settings-actions { flex-wrap: wrap; }
+  .ai-settings-actions > span { flex-basis: 100%; }
+  .real-setting-row { grid-template-columns: 18px minmax(0, 1fr) 62px 22px; gap: 8px; font-size: 12px; }
+  .real-setting-row input[type="number"] { width: 62px; }
+  .resources-toolbar { flex-wrap: wrap; gap: 12px; }
+  .resources-toolbar .ui-search { width: 100%; }
+  .resource-row { flex-wrap: wrap; gap: 12px; padding: 16px; }
+  .resource-actions { flex-basis: 100%; justify-content: flex-end; flex-wrap: wrap; }
+  .resource-fields { grid-template-columns: minmax(0, 1fr); }
+  .job-dialog, .note-editor { width: calc(100vw - 16px); height: calc(100dvh - 16px); }
+  .job-dialog .job-dialog-header { padding: 16px; gap: 12px; }
+  .job-dialog-header > .company-mark { width: 44px; height: 44px; font-size: 15px; }
+  .job-dialog-title-line h2 { font-size: 20px; }
+  .job-dialog .job-dialog-body { padding: 12px; }
+  .job-dialog-tabs { padding-inline: 12px; overflow-x: auto; }
+  .job-dialog-tabs button { flex-shrink: 0; white-space: nowrap; padding-inline: 12px; }
+  .job-dialog :is(.job-stages-tab, .job-materials-tab, .job-records-tab, .job-basic-section) { padding: 14px; }
+  .job-form-grid, .job-stage-editor-fields, .note-editor-fields { grid-template-columns: minmax(0, 1fr); }
+  .job-stage-editor-heading { flex-wrap: wrap; }
+  .job-stage-editor-fields { flex-basis: 100%; }
+  .job-stage-remove-confirm { flex-wrap: wrap; }
+  .job-stage-remove-confirm > span { flex-basis: 100%; }
+  .job-dialog-footer { padding: 12px; flex-wrap: wrap; }
+  .job-dialog-footer > span { flex-basis: 100%; }
+  .note-editor-body { padding: 16px; }
+}
+@media (max-width: 390px) {
+  .top-navigation.war-room .site-header nav button { flex-direction: column; gap: 2px; padding: 5px 9px; }
+  .page-heading-flight { width: 108px; }
+}
