@@ -20,7 +20,7 @@ export function createStore(db) {
     db.prepare('INSERT INTO app_settings VALUES (1,?) ON CONFLICT(id) DO UPDATE SET value_json=excluded.value_json').run(JSON.stringify(value))
   }
   function readApplications({ page, pageSize = 100, query = '', id } = {}) {
-    const where = `WHERE (@query = '' OR instr(lower(c.name || ' ' || coalesce(a.title, '') || ' ' || a.status), lower(@query)) > 0) AND (@id IS NULL OR a.id=@id)`
+    const where = `WHERE a.deleted_at IS NULL AND (@query = '' OR instr(lower(c.name || ' ' || coalesce(a.title, '') || ' ' || a.status), lower(@query)) > 0) AND (@id IS NULL OR a.id=@id)`
     const params = { query, id: id || null }
     const rows = db.prepare(`SELECT a.*, c.name company_name FROM applications a JOIN companies c ON c.id = a.company_id ${where}
       ORDER BY coalesce(a.applied_date, '') DESC, a.id ${page ? 'LIMIT @limit OFFSET @offset' : ''}`).all({ ...params, ...(page ? { limit: pageSize, offset: (page - 1) * pageSize } : {}) })
@@ -55,6 +55,7 @@ export function createStore(db) {
   const saveApplication = db.transaction(input => {
     const value = application(input)
     const previous = db.prepare('SELECT * FROM applications WHERE id = ?').get(value.id)
+    requireValue(!previous?.deleted_at, '岗位已删除，请刷新后重试', 409)
     requireValue(!previous || value.revision === previous.revision, '岗位已被其他页面更新，请重新打开后编辑', 409)
     requireValue(!previous?.workflow_json || value.workflow, '岗位使用自定义流程，请重新加载后编辑', 409)
     const companyId = db.prepare('INSERT INTO companies(name) VALUES (?) ON CONFLICT(name) DO UPDATE SET name=excluded.name RETURNING id').get(value.company).id
@@ -75,6 +76,14 @@ export function createStore(db) {
     db.prepare('INSERT INTO application_events(application_id,event_type,payload_json,created_at) VALUES (?,?,?,?)').run(value.id, previous ? 'updated' : 'created', JSON.stringify(value), now())
     return getApplication(value.id)
   })
+  function deleteApplication(id, input) {
+    object(input)
+    const revision = integer(input.revision, '岗位版本', 0, Number.MAX_SAFE_INTEGER)
+    const deletedAt = now()
+    const result = db.prepare('UPDATE applications SET deleted_at=?, updated_at=?, revision=revision+1 WHERE id=? AND revision=? AND deleted_at IS NULL').run(deletedAt, deletedAt, id, revision)
+    requireValue(result.changes === 1, '岗位已被修改或删除，请刷新后重试', 409)
+    db.prepare('INSERT INTO application_events(application_id,event_type,payload_json,created_at) VALUES (?,?,?,?)').run(id, 'deleted', JSON.stringify({ id, revision }), deletedAt)
+  }
   function readNotes() {
     const rows = db.prepare('SELECT * FROM notes WHERE deleted_at IS NULL ORDER BY updated_at DESC,id').all()
     const links = Map.groupBy(db.prepare('SELECT * FROM note_applications').all(), item => item.note_id)
@@ -251,5 +260,5 @@ export function createStore(db) {
   function deleteAttachment(id) {
     requireValue(db.prepare('UPDATE stored_attachments SET deleted_at=? WHERE id=? AND deleted_at IS NULL').run(now(), id).changes === 1, '附件不存在', 404)
   }
-  return { readApplications, getApplication, saveApplication, readNotes, saveNote, deleteNote, importLegacy, readResources, saveResource, deleteResource, settings, saveSettings, aiSettings, saveAiSettings, resolveAiSettings, reminders, saveAttachment, attachment, deleteAttachment }
+  return { readApplications, getApplication, saveApplication, deleteApplication, readNotes, saveNote, deleteNote, importLegacy, readResources, saveResource, deleteResource, settings, saveSettings, aiSettings, saveAiSettings, resolveAiSettings, reminders, saveAttachment, attachment, deleteAttachment }
 }

@@ -24,6 +24,7 @@ export function openDatabase(filename) {
         title TEXT, city TEXT, status TEXT NOT NULL, applied_date TEXT, source TEXT, official_url TEXT,
         priority TEXT, jd_text TEXT, terminated INTEGER NOT NULL DEFAULT 0, resume_name TEXT,
         import_batch_id INTEGER REFERENCES import_batches(id) ON DELETE SET NULL,
+        deleted_at TEXT,
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
       );
       CREATE TABLE IF NOT EXISTS application_stages (
@@ -75,6 +76,9 @@ export function openDatabase(filename) {
     }
     if (!db.prepare('PRAGMA table_info(applications)').all().some(column => column.name === 'workflow_json')) {
       db.exec('ALTER TABLE applications ADD COLUMN workflow_json TEXT')
+    }
+    if (!db.prepare('PRAGMA table_info(applications)').all().some(column => column.name === 'deleted_at')) {
+      db.exec('ALTER TABLE applications ADD COLUMN deleted_at TEXT')
     }
     if (!db.prepare('PRAGMA table_info(application_stages)').all().some(column => column.name === 'end_time')) {
       db.exec('ALTER TABLE application_stages ADD COLUMN end_time TEXT')

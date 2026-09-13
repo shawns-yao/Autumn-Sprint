@@ -3,27 +3,28 @@ import { ArrowDown, ArrowUp, CalendarDays, ExternalLink, Eye, FileText, MapPin, 
 import { emptyStage, normalizedStatus, safeUrl, stageFields, stageKinds, stageResultOptions, withWorkflow, workflowFor, type Application, type Stage, type StageKey, type StageKind, type WorkflowStage } from '../model'
 import { Button, CompanyMark, IconButton } from './Shared'
 import { ApplicationProgress, ApplicationState } from './ApplicationProgress'
-import Attachments from './Attachments'
 import ReviewEditor from './ReviewEditor'
 import StageDetails from './StageDetails'
 import StageReview from './StageReview'
 import './applications.css'
 
-const tabs = [['basic', '基本信息'], ['stages', '招聘流程'], ['materials', '资料附件'], ['interviews', '面试记录'], ['notes', '备注 / 复盘']] as const
+const tabs = [['basic', '基本信息'], ['stages', '招聘流程'], ['interviews', '面试记录'], ['review', '复盘']] as const
 type Tab = typeof tabs[number][0]
-type Props = { app: Application; onClose: () => void; onSave: (app: Application) => Promise<Application> }
+type Props = { app: Application; apps: Application[]; initialTab?: Tab; onSelectJob: (app: Application) => void; onCreateJob: (company?: string, initialTab?: Tab) => void; onDelete: (app: Application) => Promise<void>; onClose: () => void; onSave: (app: Application) => Promise<Application> }
+type DiscardAction = { kind: 'close' } | { kind: 'select'; app: Application } | { kind: 'create'; company: string; initialTab: Tab } | { kind: 'delete'; app: Application }
 
-export default function ApplicationDialog({ app, onClose, onSave }: Props) {
+export default function ApplicationDialog({ app, apps, initialTab = 'basic', onSelectJob, onCreateJob, onDelete, onClose, onSave }: Props) {
   const dialog = useRef<HTMLDialogElement>(null)
   const [draft, setDraft] = useState<Application>(() => ({ ...app, workflow: workflowFor(app) }))
   const [baseline, setBaseline] = useState(() => JSON.stringify({ ...app, workflow: workflowFor(app) }))
-  const [tab, setTab] = useState<Tab>('basic')
+  const [tab, setTab] = useState<Tab>(initialTab)
   const [editingWorkflow, setEditingWorkflow] = useState(false)
   const [stageKey, setStageKey] = useState<StageKey>(() => workflowFor(app).find(stage => ['已终止', '未通过', '已获 Offer'].includes(stage.status))?.id || workflowFor(app).find(stage => stage.label === normalizedStatus(app))?.id || workflowFor(app)[0]?.id || 'initialScreening')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
   const [discard, setDiscard] = useState(false)
+  const [discardAction, setDiscardAction] = useState<DiscardAction | null>(null)
   const [stageTemplate, setStageTemplate] = useState('initialScreening')
   const [insertAfter, setInsertAfter] = useState('')
   const [customStageName, setCustomStageName] = useState('')
@@ -37,8 +38,39 @@ export default function ApplicationDialog({ app, onClose, onSave }: Props) {
     })
     setMessage(''); setError('')
   }
-  const requestClose = () => { if (!saving) { if (dirty) setDiscard(true); else onClose() } }
+  const requestClose = () => { if (!saving) { if (dirty) { setDiscardAction({ kind: 'close' }); setDiscard(true) } else onClose() } }
+  const selectJob = (next: Application) => {
+    if (next.id === app.id) return
+    if (dirty) { setDiscardAction({ kind: 'select', app: next }); setDiscard(true) } else onSelectJob(next)
+  }
+  const createJob = () => {
+    const company = draft.company.trim() || app.company.trim()
+    if (dirty) { setDiscardAction({ kind: 'create', company, initialTab: 'stages' }); setDiscard(true) } else onCreateJob(company, 'stages')
+  }
+  const deleteJob = async (target = draft) => {
+    if (!target.updatedAt) { onClose(); return }
+    if (!window.confirm(`删除岗位“${target.title || '岗位名称待填写'}”？只删除当前岗位，不删除公司和其他岗位。`)) return
+    setSaving(true); setError(''); setMessage('')
+    try { await onDelete(target) }
+    catch (error) { setError(error instanceof Error ? error.message : '删除失败，请重试。'); setSaving(false) }
+  }
+  const requestDelete = () => {
+    if (dirty) { setDiscardAction({ kind: 'delete', app: draft }); setDiscard(true) }
+    else void deleteJob()
+  }
+  const abandonChanges = () => {
+    const action = discardAction
+    setDiscard(false); setDiscardAction(null)
+    if (!action || action.kind === 'close') onClose()
+    else if (action.kind === 'select') onSelectJob(action.app)
+    else if (action.kind === 'create') onCreateJob(action.company, action.initialTab)
+    else void deleteJob(action.app)
+  }
   const website = safeUrl(draft.website)
+  const companyKey = draft.company.trim().toLocaleLowerCase()
+  const companyJobs = apps.filter(job => job.company.trim().toLocaleLowerCase() === companyKey).map(job => job.id === draft.id ? draft : job)
+  if (!companyJobs.some(job => job.id === draft.id)) companyJobs.push(draft)
+  const sidebar = <JobSidebar jobs={companyJobs} currentId={draft.id} company={draft.company} onCompanyChange={company => patch({ company })} onSelect={selectJob} onCreate={createJob} onDelete={requestDelete} canDelete={Boolean(draft.updatedAt)} disabled={saving} />
 
   useEffect(() => {
     const element = dialog.current
@@ -57,7 +89,7 @@ export default function ApplicationDialog({ app, onClose, onSave }: Props) {
     setSaving(true); setError(''); setMessage('')
     try {
       const saved = await onSave(draft)
-      setDraft(saved); setBaseline(JSON.stringify(saved)); setMessage('已保存'); setEditingWorkflow(false)
+      setDraft(saved); setBaseline(JSON.stringify(saved)); setMessage('已保存'); setEditingWorkflow(false); setDiscardAction(null)
     } catch (error) {
       setError(error instanceof Error ? error.message : '保存失败，请重试。')
     } finally { setSaving(false) }
@@ -124,7 +156,8 @@ export default function ApplicationDialog({ app, onClose, onSave }: Props) {
         }
       }}>{label}</button>)}</div>
       <div className="job-dialog-body" id="job-tab-panel" role="tabpanel" aria-labelledby={`job-tab-${tab}`} inert={saving}>
-        {tab === 'basic' && <div className="job-dialog-single">
+        {tab === 'basic' && <div className="job-tab-layout">
+          {sidebar}
           <section className="job-basic-section">
             <div className="job-section-title"><h3>基本信息</h3></div>
             <div className="job-form-grid">
@@ -133,40 +166,41 @@ export default function ApplicationDialog({ app, onClose, onSave }: Props) {
               <label>工作城市<input value={draft.city} onChange={event => patch({ city: event.target.value })} /></label>
               <label>投递渠道<input value={draft.source} onChange={event => patch({ source: event.target.value })} /></label>
               <label>投递时间<input type="date" value={draft.applied} onChange={event => patch({ applied: event.target.value })} /></label>
-              <label>岗位状态<input value={normalizedStatus(draft)} readOnly aria-readonly="true" /></label>
               <label className="job-field-wide">岗位链接<div className="job-link-field"><input value={draft.website} onChange={event => patch({ website: event.target.value })} />{website && <a href={website} target="_blank" rel="noreferrer" title="打开岗位链接" aria-label="打开岗位链接"><ExternalLink size={15} /></a>}</div></label>
             </div>
-            <h3 className="job-jd-heading">岗位 JD</h3><textarea className="job-jd" aria-label="岗位 JD" value={draft.jd} onChange={event => patch({ jd: event.target.value })} placeholder="暂无岗位描述" />
           </section>
         </div>}
-        {tab === 'stages' && <section className="job-stages-tab">
-          <div className="job-section-title"><h3>{editingWorkflow ? '招聘流程编辑' : '招聘流程'}</h3><Button icon={editingWorkflow ? Eye : Pencil} aria-controls="job-workflow-details" onClick={() => setEditingWorkflow(current => !current)}>{editingWorkflow ? '返回查看' : '修改流程'}</Button></div>
-          <ApplicationProgress app={draft} selectedStage={selectedWorkflowStage?.id} onSelectStage={setStageKey} onInsertAfter={editingWorkflow && (draft.workflow || []).length < 40 ? beginInsert : undefined} />
-          {editingWorkflow && <div className="job-stage-add">
-            <label>新增阶段<select ref={stageTemplateRef} aria-label="新增阶段类型" value={stageTemplate} onChange={event => setStageTemplate(event.target.value)}>{stageFields.map(([id, label]) => <option value={id} key={id}>{label}</option>)}<option value="custom">自定义阶段</option></select></label>
-            {stageTemplate === 'custom' && <label>阶段名称<input aria-label="自定义阶段名称" maxLength={80} value={customStageName} onChange={event => setCustomStageName(event.target.value)} /></label>}
-            <label>插入位置<select aria-label="阶段插入位置" value={insertAfter} onChange={event => setInsertAfter(event.target.value)}><option value="">投递之后</option>{(draft.workflow || []).map(stage => <option key={stage.id} value={stage.id}>{stage.label}之后</option>)}</select></label>
-            <Button icon={Plus} disabled={(draft.workflow || []).length >= 40 || (stageTemplate === 'custom' && !customStageName.trim())} onClick={addStage}>添加阶段</Button>
-          </div>}
-          <div id="job-workflow-details">
-            {selectedWorkflowStage ? editingWorkflow
-              ? <StageForm key={selectedWorkflowStage.id} stage={selectedWorkflowStage} index={(draft.workflow || []).findIndex(item => item.id === selectedWorkflowStage.id)} total={(draft.workflow || []).length} onMetaChange={value => updateStageMeta(selectedWorkflowStage.id, value)} onMove={offset => moveStage(selectedWorkflowStage.id, offset)} onRemove={() => removeStage(selectedWorkflowStage.id)} onChange={value => patchStage(selectedWorkflowStage.id, value)} />
-              : <StageDetails key={selectedWorkflowStage.id} stage={selectedWorkflowStage} />
-              : <p className="job-muted-empty">暂无招聘阶段</p>}
-          </div>
-        </section>}
-        {tab === 'materials' && <Attachments app={draft} />}
-        {tab === 'interviews' && <section className="job-records-tab"><div className="job-section-title"><h3>面试记录</h3>{interviewStagePicker}</div>{interviewStageKey ? <StageForm key={interviewStageKey} stage={interviewStages.find(stage => stage.id === interviewStageKey)!} index={-1} total={0} onMetaChange={() => undefined} onMove={() => undefined} onRemove={() => undefined} onChange={value => patchStage(interviewStageKey, value)} editableStatus={false} /> : <p className="job-muted-empty">招聘流程中暂无面试阶段</p>}</section>}
-        {tab === 'notes' && <section className="job-notes-tab job-review-tab">{reviewStage ? <StageReview key={reviewStage.id} stage={reviewStage} stages={workflowStages} onSelect={setStageKey} onChange={value => patchStage(reviewStage.id, value)} /> : <p className="job-muted-empty">招聘流程中暂无可复盘阶段</p>}</section>}
+        {tab === 'stages' && <div className="job-tab-layout">
+          {sidebar}
+          <section className="job-tab-content job-workflow-main">
+              <div className="job-section-title"><h3>{editingWorkflow ? '招聘流程编辑' : '招聘流程'}</h3><Button icon={editingWorkflow ? Eye : Pencil} aria-controls="job-workflow-details" onClick={() => setEditingWorkflow(current => !current)}>{editingWorkflow ? '返回查看' : '修改流程'}</Button></div>
+              <ApplicationProgress app={draft} selectedStage={selectedWorkflowStage?.id} onSelectStage={setStageKey} onInsertAfter={editingWorkflow && (draft.workflow || []).length < 40 ? beginInsert : undefined} />
+              {editingWorkflow && <div className="job-stage-add">
+                <label>新增阶段<select ref={stageTemplateRef} aria-label="新增阶段类型" value={stageTemplate} onChange={event => setStageTemplate(event.target.value)}>{stageFields.map(([id, label]) => <option value={id} key={id}>{label}</option>)}<option value="custom">自定义阶段</option></select></label>
+                {stageTemplate === 'custom' && <label>阶段名称<input aria-label="自定义阶段名称" maxLength={80} value={customStageName} onChange={event => setCustomStageName(event.target.value)} /></label>}
+                <label>插入位置<select aria-label="阶段插入位置" value={insertAfter} onChange={event => setInsertAfter(event.target.value)}><option value="">投递之后</option>{(draft.workflow || []).map(stage => <option key={stage.id} value={stage.id}>{stage.label}之后</option>)}</select></label>
+                <Button icon={Plus} disabled={(draft.workflow || []).length >= 40 || (stageTemplate === 'custom' && !customStageName.trim())} onClick={addStage}>添加阶段</Button>
+              </div>}
+              <div id="job-workflow-details">
+                {selectedWorkflowStage ? editingWorkflow
+                  ? <StageForm key={selectedWorkflowStage.id} stage={selectedWorkflowStage} index={(draft.workflow || []).findIndex(item => item.id === selectedWorkflowStage.id)} total={(draft.workflow || []).length} onMetaChange={value => updateStageMeta(selectedWorkflowStage.id, value)} onMove={offset => moveStage(selectedWorkflowStage.id, offset)} onRemove={() => removeStage(selectedWorkflowStage.id)} onChange={value => patchStage(selectedWorkflowStage.id, value)} showRecord={false} />
+                  : <StageDetails key={selectedWorkflowStage.id} stage={selectedWorkflowStage} />
+                  : <p className="job-muted-empty">暂无招聘阶段</p>}
+              </div>
+              {!editingWorkflow && <section className="job-jd-panel" aria-labelledby="job-jd-title"><div className="job-section-title"><h4 id="job-jd-title"><FileText size={16} aria-hidden="true" />岗位 JD</h4></div><textarea className="job-jd" aria-label="岗位 JD" value={draft.jd} onChange={event => patch({ jd: event.target.value })} placeholder="暂无岗位描述" /></section>}
+          </section>
+        </div>}
+        {tab === 'interviews' && <div className="job-tab-layout">{sidebar}<section className="job-records-tab"><div className="job-section-title"><h3>面试记录</h3>{interviewStagePicker}</div>{interviewStageKey ? <StageForm key={interviewStageKey} stage={interviewStages.find(stage => stage.id === interviewStageKey)!} index={-1} total={0} onMetaChange={() => undefined} onMove={() => undefined} onRemove={() => undefined} onChange={value => patchStage(interviewStageKey, value)} editableStatus={false} /> : <p className="job-muted-empty">招聘流程中暂无面试阶段</p>}</section></div>}
+        {tab === 'review' && <div className="job-tab-layout">{sidebar}<section className="job-notes-tab job-review-tab">{reviewStage ? <StageReview key={reviewStage.id} stage={reviewStage} stages={workflowStages} onSelect={setStageKey} onChange={value => patchStage(reviewStage.id, value)} /> : <p className="job-muted-empty">招聘流程中暂无可复盘阶段</p>}</section></div>}
       </div>
       <footer className="job-dialog-footer">
-        {discard ? <><span role="alert">存在未保存的修改，确定放弃？</span><Button onClick={() => setDiscard(false)}>继续编辑</Button><Button variant="danger" onClick={onClose}>放弃更改</Button></> : <><span role={error ? 'alert' : 'status'} className={error ? 'job-save-error' : 'job-save-status'}>{error || message || (dirty ? '有未保存的修改' : '')}</span><Button disabled={saving} onClick={requestClose}>关闭</Button><Button type="submit" variant="primary" icon={Save} disabled={saving || !dirty}>{saving ? '保存中…' : '保存更改'}</Button></>}
+        {discard ? <><span role="alert">存在未保存的修改，确定放弃？</span><Button onClick={() => { setDiscard(false); setDiscardAction(null) }}>继续编辑</Button><Button variant="danger" onClick={abandonChanges}>{discardAction?.kind === 'select' ? '切换岗位' : discardAction?.kind === 'create' ? '新增岗位' : discardAction?.kind === 'delete' ? '放弃修改并删除' : '放弃更改'}</Button></> : <><span role={error ? 'alert' : 'status'} className={error ? 'job-save-error' : 'job-save-status'}>{error || message || (dirty ? '有未保存的修改' : '')}</span><Button disabled={saving} onClick={requestClose}>关闭</Button><Button type="submit" variant="primary" icon={Save} disabled={saving || !dirty}>{saving ? '保存中…' : '保存更改'}</Button></>}
       </footer>
     </form>
   </dialog>
 }
 
-function StageForm({ stage, index, total, onMetaChange, onMove, onRemove, onChange, editableStatus = true }: { stage: WorkflowStage; index: number; total: number; onMetaChange: (value: Partial<Pick<WorkflowStage, 'label' | 'kind'>>) => void; onMove: (offset: number) => void; onRemove: () => void; onChange: (value: Partial<Stage>) => void; editableStatus?: boolean }) {
+function StageForm({ stage, index, total, onMetaChange, onMove, onRemove, onChange, editableStatus = true, showRecord = true }: { stage: WorkflowStage; index: number; total: number; onMetaChange: (value: Partial<Pick<WorkflowStage, 'label' | 'kind'>>) => void; onMove: (offset: number) => void; onRemove: () => void; onChange: (value: Partial<Stage>) => void; editableStatus?: boolean; showRecord?: boolean }) {
   const [confirmRemove, setConfirmRemove] = useState(false)
   return <div className="job-stage-form">
     {editableStatus ? <div className="job-stage-editor-heading">
@@ -191,10 +225,24 @@ function StageForm({ stage, index, total, onMetaChange, onMove, onRemove, onChan
         <label>地址 / 链接<input value={stage.link} onChange={event => onChange({ link: event.target.value })} /></label>
       </div>
     </fieldset>
-    <StageRecordField title="阶段记录" value={stage} onChange={onChange} />
+    {showRecord && <StageRecordField title="阶段记录" value={stage} onChange={onChange} />}
   </div>
 }
 
 function StageRecordField({ title, value, onChange }: { title: string; value: Stage; onChange: (value: Partial<Stage>) => void }) {
   return <div className="job-field-wide job-stage-record"><div className="stage-record-label">{title}</div><ReviewEditor value={value} onChange={onChange} label={title} compact /></div>
+}
+
+function JobSidebar({ jobs, currentId, company, onCompanyChange, onSelect, onCreate, onDelete, canDelete, disabled }: { jobs: Application[]; currentId: string | number; company: string; onCompanyChange: (value: string) => void; onSelect: (app: Application) => void; onCreate: () => void; onDelete: () => void; canDelete: boolean; disabled: boolean }) {
+  return <aside className="job-workflow-sidebar" aria-label="同公司岗位">
+    <header className="job-workflow-sidebar-heading"><div><span>投递岗位</span><strong>{jobs.length}</strong></div><Button icon={Plus} size="small" disabled={disabled} onClick={onCreate}>新增岗位</Button></header>
+    {!canDelete && <label className="job-workflow-sidebar-company">公司名称<input value={company} onChange={event => onCompanyChange(event.target.value)} placeholder="填写公司名称" disabled={disabled} /></label>}
+    <div className="job-workflow-job-list">
+      {jobs.map(job => <button type="button" className={`job-workflow-job ${job.id === currentId ? 'current' : ''}`} key={job.id} aria-current={job.id === currentId ? 'page' : undefined} onClick={() => onSelect(job)} disabled={disabled}>
+        <span className="job-workflow-job-top"><strong>{job.title || '岗位名称待填写'}</strong><ApplicationState app={job} /></span>
+        <small>{[job.city, job.applied].filter(Boolean).join(' · ') || '岗位信息待补充'}</small>
+      </button>)}
+    </div>
+    <Button icon={Trash2} variant="danger" size="small" className="job-workflow-delete" disabled={disabled || !canDelete} onClick={onDelete}>删除当前岗位</Button>
+  </aside>
 }

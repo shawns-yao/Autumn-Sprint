@@ -103,9 +103,10 @@ const server = http.createServer(async (req, res) => {
       if (match) return json(res, store.saveAttachment(match[1], await readBody(req, 14 * 1024 * 1024)), 201)
     }
     if (req.method === 'DELETE') {
-      const match = pathname.match(/^\/api\/(notes|resources|attachments)\/([\w-]+)$/)
+      const match = pathname.match(/^\/api\/(applications|notes|resources|attachments)\/([\w-]+)$/)
       if (match) {
         const id = identifier(match[2])
+        if (match[1] === 'applications') store.deleteApplication(id, await readBody(req))
         if (match[1] === 'notes') store.deleteNote(id, await readBody(req))
         if (match[1] === 'resources') store.deleteResource(id, await readBody(req))
         if (match[1] === 'attachments') store.deleteAttachment(id)

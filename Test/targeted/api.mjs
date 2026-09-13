@@ -96,6 +96,14 @@ try {
     saved = await call('/api/applications', 'POST', app('primary'))
     assert.equal(saved.resume, ''); assert.equal(saved.title, ''); assert.equal(saved.revision, 1)
   })
+  await check('同公司岗位软删除不影响其他岗位', async () => {
+    const sibling = await call('/api/applications', 'POST', { ...app('sibling'), company: saved.company, title: '同公司岗位' })
+    assert.ok((await call('/api/workspace')).applications.some(item => item.id === sibling.id))
+    await call(`/api/applications/${sibling.id}`, 'DELETE', { revision: sibling.revision })
+    assert.equal((await call('/api/workspace')).applications.some(item => item.id === sibling.id), false)
+    assert.equal((await call('/api/applications/primary')).company, saved.company)
+    await call(`/api/applications/${sibling.id}`, 'GET', undefined, 404)
+  })
   await check('岗位并发版本冲突不覆盖数据', async () => {
     const original = saved
     saved = await call('/api/applications', 'POST', { ...legacy(saved), city: '测试城市' })

@@ -17,9 +17,12 @@ export type Application = {
 }
 export type Attachment = { id: string; name: string; mime: string; bytes: number; url: string }
 export type View = 'home' | 'overview' | 'applications' | 'notes' | 'documents' | 'settings'
-export const stageFields = [['initialScreening', '初筛'], ['evaluation', '测评'], ['written', '笔试'], ['aiInterview', 'AI 面试'], ['firstInterview', '一面'], ['secondInterview', '二面'], ['thirdInterview', '三面'], ['hrInterview', 'HR 面']] as const
+export const stageFields = [['initialScreening', '初筛'], ['evaluation', '测评'], ['written', '笔试'], ['firstInterview', '一面'], ['secondInterview', '二面'], ['thirdInterview', '三面']] as const
+const legacyStageFields = [['initialScreening', '初筛'], ['evaluation', '测评'], ['written', '笔试'], ['aiInterview', 'AI 面试'], ['firstInterview', '一面'], ['secondInterview', '二面'], ['thirdInterview', '三面'], ['hrInterview', 'HR 面']] as const
+const stageKindFor = (id: string): StageKind => id === 'initialScreening' ? 'screening' : ['evaluation', 'written'].includes(id) ? 'exam' : 'interview'
+const stagesFromFields = (fields: readonly (readonly [string, string])[]): WorkflowStage[] => fields.map(([id, label]) => ({ ...emptyStage(), id, label, kind: stageKindFor(id) }))
 export type StageKey = string
-export const workflowFor = (app: Application): WorkflowStage[] => app.workflow ?? stageFields.map(([id, label]) => ({ ...emptyStage(), ...((app as unknown as Record<string, Stage | undefined>)[id] || {}), id, label, kind: id === 'initialScreening' ? 'screening' : ['evaluation', 'written'].includes(id) ? 'exam' : 'interview' }))
+export const workflowFor = (app: Application): WorkflowStage[] => app.workflow ?? stagesFromFields(legacyStageFields).map(stage => ({ ...stage, ...((app as unknown as Record<string, Stage | undefined>)[stage.id] || {}) }))
 export const getStage = (app: Application, key: StageKey): Stage => workflowFor(app).find(stage => stage.id === key) || emptyStage()
 export const normalizedStatus = (app: Application) => app.status === '技术面' && !workflowFor(app).some(stage => stage.label === '技术面') ? '一面' : app.status
 export const lifecycle = (app: Application) => app.terminated || app.status === '终止' ? '已终止' : app.status === '拒绝' ? '已结束' : app.status === 'Offer' ? 'Offer' : '进行中'
@@ -35,7 +38,7 @@ export function withWorkflow(app: Application, workflow: WorkflowStage[]): Appli
 export const localDate = (value = new Date()) => `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`
 export const isClosed = (app: Application) => app.terminated || ['拒绝', '终止'].includes(app.status)
 export function makeApplication(): Application {
-  const workflow = stageFields.map(([id, label]) => ({ ...emptyStage(), id, label, kind: id === 'initialScreening' ? 'screening' : ['evaluation', 'written'].includes(id) ? 'exam' : 'interview' as WorkflowStage['kind'] }))
+  const workflow = stagesFromFields(stageFields)
   return { id: crypto.randomUUID(), company: '', title: '', city: '', status: '已投递', applied: localDate(), source: '官网', website: '', priority: '中', jd: '', resume: '', terminated: false, workflow, currentStageId: '' }
 }
 export type Event = { id: string; app: Application; label: string; date: string; time: string; endTime: string; stage: Stage; done: boolean }

@@ -164,7 +164,29 @@
 .job-dialog-footer > span { flex: 1; font-size: 11px; line-height: 1.6; }
 .job-save-error { color: #d65365; }
 .job-save-status { color: #7489a3; }
-.job-stages-tab, .job-materials-tab, .job-records-tab, .job-notes-tab { padding: 21px; border: 1px solid #dfe7e3; border-radius: 8px; background: #fff; min-height: 100%; box-shadow: 0 5px 18px #203a2f0b; }
+.job-stages-tab, .job-materials-tab, .job-records-tab, .job-notes-tab, .job-tab-content { padding: 21px; border: 1px solid #dfe7e3; border-radius: 8px; background: #fff; min-height: 100%; box-shadow: 0 5px 18px #203a2f0b; }
+.job-workflow-layout, .job-tab-layout { display: grid; grid-template-columns: 246px minmax(0, 1fr); gap: 20px; align-items: stretch; min-width: 0; }
+.job-workflow-sidebar { position: sticky; top: 0; align-self: start; min-width: 0; box-sizing: border-box; padding: 14px; border: 1px solid #dfe7e3; border-radius: 7px; background: #fbfdfc; }
+.job-workflow-sidebar-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 14px; }
+.job-workflow-sidebar-heading > div { display: flex; align-items: baseline; gap: 7px; min-width: 0; }
+.job-workflow-sidebar-heading span { color: var(--ui-secondary); font-size: 12px; }
+.job-workflow-sidebar-heading strong { color: var(--ui-action); font-size: 16px; }
+.job-workflow-sidebar-company { display: grid; gap: 7px; margin-bottom: 14px; color: var(--ui-secondary); font-size: 12px; }
+.job-workflow-sidebar-company input { width: 100%; min-width: 0; height: var(--ui-control-height); padding: 8px 10px; border: 1px solid var(--ui-border); border-radius: var(--ui-radius); background: #fff; color: var(--ui-text); font-size: 14px; }
+.job-workflow-job-list { display: grid; gap: 7px; max-height: 420px; overflow: auto; }
+.job-workflow-job { display: grid; gap: 7px; width: 100%; min-width: 0; padding: 11px 10px; border: 1px solid transparent; border-radius: 6px; background: transparent; color: inherit; text-align: left; cursor: pointer; }
+.job-workflow-job:hover { border-color: #c8ded4; background: #f2f9f5; }
+.job-workflow-job.current { border-color: #9acdbb; background: #eaf7f1; box-shadow: inset 3px 0 #218168; }
+.job-workflow-job-top { display: flex; align-items: flex-start; gap: 8px; min-width: 0; }
+.job-workflow-job-top strong { flex: 1; min-width: 0; color: #28483d; font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
+.job-workflow-job .job-state { flex-shrink: 0; min-width: 0; padding: 4px 6px; font-size: 9px; }
+.job-workflow-job small { color: var(--ui-muted); font-size: 10px; line-height: 1.5; overflow-wrap: anywhere; }
+.job-workflow-main { min-width: 0; }
+.job-jd-panel { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--ui-border); }
+.job-jd-panel .job-section-title { margin-bottom: 10px; }
+.job-jd-panel h4 { display: flex; align-items: center; gap: 7px; margin: 0; color: var(--ui-secondary); font-size: 13px; font-weight: 600; }
+.job-jd-panel h4 svg { color: var(--ui-action); }
+.job-jd-panel .job-jd { min-height: 210px; }
 .job-stage-picker { display: flex; align-items: center; gap: 8px; color: #7890ab; font-size: 11px; }
 .job-stage-picker select, .job-stage-form > .job-section-title select { padding: 6px 9px; border: 1px solid #dbe6f3; border-radius: 4px; background: #fff; color: #365676; font-size: 12px; }
 .job-stage-form { margin: 26px 0 18px; padding-top: 18px; border-top: 1px solid #e5edf6; }
@@ -215,4 +237,15 @@
   .jobs-toolbar { gap: 8px; }
   .jobs-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .job-dialog-header { padding: 22px 24px 17px; }
+}
+@media (max-width: 760px) {
+  .job-workflow-layout, .job-tab-layout { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  .job-workflow-sidebar { position: static; }
+  .job-workflow-job-list { grid-template-columns: repeat(2, minmax(0, 1fr)); max-height: 250px; }
+  .job-workflow-job { padding: 10px 8px; }
+  .job-workflow-job-top { display: grid; gap: 5px; }
+  .job-workflow-job .job-state { justify-self: start; }
+}
+@media (max-width: 390px) {
+  .job-workflow-job-list { grid-template-columns: minmax(0, 1fr); }
 }
