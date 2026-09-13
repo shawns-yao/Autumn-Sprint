@@ -90,9 +90,9 @@ export default function ApplicationDialog({ app, apps, initialTab = 'basic', onS
     try { await onDeleteCompany(company) }
     catch (error) { setError(error instanceof Error ? error.message : '删除公司失败，请重试。'); setSaving(false) }
   }
-  const requestDelete = () => {
-    if (dirty) { setDiscardAction({ kind: 'delete', app: draft }); setDiscard(true) }
-    else void deleteJob()
+  const requestDelete = (target = draft) => {
+    if (dirty) { setDiscardAction({ kind: 'delete', app: target }); setDiscard(true) }
+    else void deleteJob(target)
   }
   const requestDeleteCompany = () => {
     const company = app.company.trim()
@@ -284,12 +284,12 @@ function StageRecordField({ title, value, onChange }: { title: string; value: St
   return <div className="job-field-wide job-stage-record"><div className="stage-record-label">{title}</div><ReviewEditor value={value} onChange={onChange} label={title} compact /></div>
 }
 
-function JobSidebar({ jobs, currentId, company, onCompanyChange, onSelect, onCreate, onMove, onDelete, canDelete, disabled }: { jobs: Application[]; currentId: string | number; company: string; onCompanyChange: (value: string) => void; onSelect: (app: Application) => void; onCreate: () => void; onMove: (sourceId: string | number, targetId: string | number, before: boolean) => void; onDelete: () => void; canDelete: boolean; disabled: boolean }) {
+function JobSidebar({ jobs, currentId, company, onCompanyChange, onSelect, onCreate, onMove, onDelete, canDelete, disabled }: { jobs: Application[]; currentId: string | number; company: string; onCompanyChange: (value: string) => void; onSelect: (app: Application) => void; onCreate: () => void; onMove: (sourceId: string | number, targetId: string | number, before: boolean) => void; onDelete: (job: Application) => void; canDelete: boolean; disabled: boolean }) {
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [dropTarget, setDropTarget] = useState<{ id: string; before: boolean } | null>(null)
   const finishDrag = () => { setDraggingId(null); setDropTarget(null) }
   return <aside className="job-workflow-sidebar" aria-label="同公司岗位">
-    <header className="job-workflow-sidebar-heading"><div><span>投递岗位</span><strong>{jobs.length}</strong></div><Button icon={Plus} size="small" disabled={disabled} onClick={onCreate}>新增岗位</Button></header>
+    <header className="job-workflow-sidebar-heading"><div><span>投递岗位 ·</span><strong>{jobs.length}</strong></div><Button icon={Plus} size="small" disabled={disabled} onClick={onCreate}>新增</Button></header>
     {!canDelete && <label className="job-workflow-sidebar-company">公司名称<input value={company} onChange={event => onCompanyChange(event.target.value)} placeholder="填写公司名称" disabled={disabled} /></label>}
     <div className="job-workflow-job-list">
       {jobs.map((job, index) => <div className={`job-workflow-job-row ${job.id === currentId ? 'current' : ''} ${draggingId === String(job.id) ? 'dragging' : ''} ${dropTarget?.id === String(job.id) ? dropTarget.before ? 'drop-before' : 'drop-after' : ''}`} key={job.id}
@@ -305,7 +305,7 @@ function JobSidebar({ jobs, currentId, company, onCompanyChange, onSelect, onCre
         </button>
         <div className="job-workflow-job-side">
           <ApplicationState app={job} />
-          {job.id === currentId && <IconButton icon={X} label="删除当前岗位" variant="danger" size="small" className="job-workflow-job-delete" disabled={disabled || !canDelete} onClick={event => { event.stopPropagation(); onDelete() }} />}
+          <IconButton icon={X} label={`删除${job.title || '当前岗位'}`} variant="ghost" size="small" className="job-workflow-job-delete" disabled={disabled || !canDelete} onClick={event => { event.stopPropagation(); onDelete(job) }} />
         </div>
       </div>)}
     </div>
