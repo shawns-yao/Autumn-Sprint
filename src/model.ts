@@ -28,6 +28,13 @@ const legacyStageStatusAliases: Record<string, string> = { '已安排': '进行�
 export const normalizeStageStatus = (status: string) => legacyStageStatusAliases[status] || status
 export const stageProgressLabel = (stage?: Pick<WorkflowStage, 'label' | 'status'>) => stage?.status === '进行中' ? `${stage.label}中` : stage?.label || ''
 export const workflowFor = (app: Application): WorkflowStage[] => (app.workflow ?? stagesFromFields(legacyStageFields).map(stage => ({ ...stage, ...((app as unknown as Record<string, Stage | undefined>)[stage.id] || {}) }))).map(stage => ({ ...stage, status: normalizeStageStatus(stage.status || '未开始') }))
+const normalizeSearchText = (value: string) => value.toLocaleLowerCase().normalize('NFKC').replace(/[\s\-_/、,，|;；·]+/g, '')
+export const matchesApplicationQuery = (app: Application, query: string) => {
+  const terms = query.split(/[\s\-_/、,，|;；·]+/).map(normalizeSearchText).filter(Boolean)
+  if (!terms.length) return true
+  const searchable = normalizeSearchText([app.company, app.title, app.city, app.source, app.status, ...workflowFor(app).flatMap(stage => [stage.label, stage.status])].join(' '))
+  return terms.every(term => searchable.includes(term))
+}
 export const getStage = (app: Application, key: StageKey): Stage => workflowFor(app).find(stage => stage.id === key) || emptyStage()
 export const normalizedStatus = (app: Application) => {
   const workflow = workflowFor(app)
@@ -112,7 +119,7 @@ export function recruitmentFunnel(apps: Application[]) {
   const enteredInterview = activeApps.filter(app => currentStage(app)?.kind === 'interview').length
   const offers = activeApps.filter(app => app.status === 'Offer').length
   return [
-    { label: '投递', count: activeApps.length, description: '个未终止岗位', color: '#4c92ee' },
+    { label: '初筛中', count: activeApps.length, description: '个未终止岗位', color: '#4c92ee' },
     { label: '测评 / 笔试', count: enteredExam, description: '个有考试记录', color: '#9bc5f4' },
     { label: '面试记录', count: enteredInterview, description: '个有面试记录', color: '#a9ddcc' },
     { label: 'Offer', count: offers, description: '个 Offer', color: '#f4c8cd' },

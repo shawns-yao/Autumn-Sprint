@@ -1,5 +1,5 @@
 import { randomUUID, createHash } from 'node:crypto'
-import { application, applicationOrder, stageMap, stageKind, object, text, url, identifier, integer, stringArray, requireValue, HttpError } from './validation.mjs'
+import { application, applicationOrder, normalizeStageStatus, stageMap, stageKind, object, text, url, identifier, integer, stringArray, requireValue, HttpError } from './validation.mjs'
 
 const emptyStage = () => ({ status: '未开始', date: '', time: '', endTime: '', location: '', link: '', requirements: '', notes: '' })
 const storageName = id => Object.hasOwn(stageMap, id) ? stageMap[id] : `node-${id}`
@@ -24,7 +24,7 @@ export function createStore(db) {
     db.prepare('INSERT INTO app_settings VALUES (1,?) ON CONFLICT(id) DO UPDATE SET value_json=excluded.value_json').run(JSON.stringify(value))
   }
   function readApplications({ page, pageSize = 100, query = '', id } = {}) {
-    const where = `WHERE a.deleted_at IS NULL AND (@query = '' OR instr(lower(c.name || ' ' || coalesce(a.title, '') || ' ' || a.status), lower(@query)) > 0) AND (@id IS NULL OR a.id=@id)`
+    const where = `WHERE a.deleted_at IS NULL AND (@query = '' OR instr(lower(c.name || ' ' || coalesce(a.title, '') || ' ' || coalesce(a.city, '') || ' ' || coalesce(a.source, '') || ' ' || a.status || ' ' || coalesce(a.workflow_json, '')), lower(@query)) > 0) AND (@id IS NULL OR a.id=@id)`
     const params = { query, id: id || null }
     const rows = db.prepare(`SELECT a.*, c.name company_name FROM applications a JOIN companies c ON c.id = a.company_id ${where}
       ORDER BY coalesce(a.applied_date, '') DESC, a.id ${page ? 'LIMIT @limit OFFSET @offset' : ''}`).all({ ...params, ...(page ? { limit: pageSize, offset: (page - 1) * pageSize } : {}) })
@@ -35,18 +35,19 @@ export function createStore(db) {
     const stageGroups = Map.groupBy(stages, item => item.application_id)
     const fileGroups = Map.groupBy(attachments, item => item.application_id)
     const items = rows.map(row => {
-      const byName = Object.fromEntries((stageGroups.get(row.id) || []).map(stage => [stage.stage_name, Object.fromEntries(Object.keys(emptyStage()).map(key => [key, stage[key === 'endTime' ? 'end_time' : key] || (key === 'status' ? '未开始' : '')]))]))
+      const byName = Object.fromEntries((stageGroups.get(row.id) || []).map(stage => [stage.stage_name, Object.fromEntries(Object.keys(emptyStage()).map(key => [key, key === 'status' ? normalizeStageStatus(stage.status || '未开始') : stage[key === 'endTime' ? 'end_time' : key] || '']))]))
       const legacy = Object.fromEntries(Object.entries(stageMap).map(([key, name]) => [key, byName[name] || (key === 'firstInterview' ? byName['技术面'] : key === 'aiInterview' ? byName['AI面试'] : key === 'hrInterview' ? byName.HR : undefined) || emptyStage()]))
       let metadata
       try { metadata = row.workflow_json ? JSON.parse(row.workflow_json) : null }
       catch { throw new HttpError(500, '招聘流程数据格式异常，请先备份后修复') }
       requireValue(!metadata || (Array.isArray(metadata.stages) && typeof metadata.currentStageId === 'string'), '招聘流程数据格式异常', 500)
-      let workflow = metadata ? metadata.stages.map(node => ({ ...emptyStage(), ...byName[storageName(node.id)], ...node }))
+      let workflow = metadata ? metadata.stages.map(node => ({ ...emptyStage(), ...byName[storageName(node.id)], ...node, status: normalizeStageStatus(node.status || byName[storageName(node.id)]?.status || '未开始') }))
         : Object.entries(stageMap).map(([id, label]) => ({ ...legacy[id], id, label, kind: stageKind(id) }))
       const storedStatus = row.status === '技术面' && !metadata ? '一面' : row.status === '已投递' ? '初筛' : row.status
       const hasProgress = workflow.some(stage => stage.status !== '未开始')
-      if (row.status === '已投递' && !metadata?.currentStageId && !hasProgress && workflow[0]) workflow = workflow.map((stage, index) => index === 0 ? { ...stage, status: '进行中', date: stage.date || localDate() } : stage)
-      const currentStageId = metadata?.currentStageId || (workflow.find(stage => ['已终止', '未通过', '已获 Offer'].includes(stage.status)) || workflow.find(stage => stage.label === storedStatus || (row.status === '技术面' && stage.id === 'firstInterview')))?.id || ''
+      const fallbackStageDate = (row.updated_at || row.applied_date || '').slice(0, 10) || localDate()
+      if (row.status === '已投递' && !metadata?.currentStageId && !hasProgress && workflow[0]) workflow = workflow.map((stage, index) => index === 0 ? { ...stage, status: '进行中', date: stage.date || fallbackStageDate } : stage)
+      const currentStageId = metadata?.currentStageId || (workflow.find(stage => ['未通过', 'Offer'].includes(stage.status)) || workflow.find(stage => stage.label === storedStatus || (row.status === '技术面' && stage.id === 'firstInterview')))?.id || ''
       return {
         id: row.id, company: row.company_name, title: row.title || '', city: row.city || '', status: storedStatus,
         applied: row.applied_date || '', source: row.source || '', website: row.official_url || '', priority: row.priority || '中',
@@ -266,7 +267,7 @@ export function createStore(db) {
         const { id: key, label } = stage
         if (!['exam', 'interview'].includes(stage.kind)) continue
         const exam = stage.kind === 'exam'
-        if (!['已安排', '进行中'].includes(stage.status) || !stage.date || !(exam ? config.examEnabled : config.interviewEnabled)) continue
+        if (stage.status !== '进行中' || !stage.date || !(exam ? config.examEnabled : config.interviewEnabled)) continue
         const due = new Date(`${stage.date}T${stage.time || '23:59'}:00+08:00`).getTime()
         const ends = stage.endTime ? new Date(`${stage.date}T${stage.endTime}:00+08:00`).getTime() : due
         if (due - current <= (exam ? config.examHours : config.interviewHours) * 3600000) result.push({ id: `${app.id}-${key}`, applicationId: app.id, company: app.company, label: `${label} · ${stage.date} ${stage.time}${stage.endTime ? ` - ${stage.endTime}` : ''}${ends < current ? ' · 已过时间，请更新结果' : due < current ? ' · 进行中' : ''}` })

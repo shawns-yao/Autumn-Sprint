@@ -1,7 +1,9 @@
 export const stageMap = { initialScreening: '初筛', evaluation: '测评', written: '笔试', aiInterview: 'AI 面试', firstInterview: '一面', secondInterview: '二面', thirdInterview: '三面', hrInterview: 'HR 面' }
 export const stageKind = key => key === 'initialScreening' ? 'screening' : ['evaluation', 'written'].includes(key) ? 'exam' : 'interview'
 export const statuses = ['已投递', ...Object.values(stageMap), 'Offer', '拒绝', '终止']
-export const stageStatuses = ['未开始', '进行中', '已安排', '已完成', '未通过', '已终止', '已获 Offer', '跳过', '已取消']
+export const stageStatuses = ['未开始', '进行中', '已完成', '未通过', 'Offer', '已取消', '跳过']
+const legacyStageStatusAliases = { '已安排': '进行中', '已终止': '已取消', '已获 Offer': 'Offer' }
+export const normalizeStageStatus = value => legacyStageStatusAliases[value] || value
 const localDate = () => {
   const current = new Date()
   return new Date(current.getTime() - current.getTimezoneOffset() * 60000).toISOString().slice(0, 10)
@@ -12,7 +14,7 @@ function startStage(stage) {
 }
 function advanceStages(stages) {
   stages.forEach(startStage)
-  if (stages.some(stage => ['进行中', '已安排'].includes(stage.status))) return
+  if (stages.some(stage => stage.status === '进行中')) return
   const nextIndex = stages.findIndex((stage, index) => stage.status === '未开始' && stages.slice(0, index).every(previous => completedBeforeAutoStart.has(previous.status)))
   if (nextIndex >= 0) {
     stages[nextIndex].status = '进行中'
@@ -68,12 +70,15 @@ export function application(input) {
   requireValue(['高', '中', '低'].includes(result.priority), '无效的优先级')
   const custom = input.workflow !== undefined
   if (custom) requireValue(Array.isArray(input.workflow) && input.workflow.length <= 40, '招聘流程最多包含 40 个阶段')
-  const nodes = (custom ? input.workflow : Object.entries(stageMap).map(([id, label]) => ({ ...object(input[id] || {}), id, label, kind: stageKind(id) }))).map(node => {
+  const rawNodes = custom ? input.workflow : Object.entries(stageMap).map(([id, label]) => ({ ...object(input[id] || {}), id, label, kind: stageKind(id) }))
+  const legacyStageTerminated = rawNodes.some(node => node?.status === '已终止')
+  const nodes = rawNodes.map(node => {
     const stage = object(node)
-    return { ...stage, status: stage.status || '未开始' }
+    return { ...stage, status: normalizeStageStatus(stage.status || '未开始') }
   })
-  const hasOutcome = nodes.some(stage => ['已终止', '已获 Offer', '未通过'].includes(stage.status))
-  if (!hasOutcome) advanceStages(nodes)
+  const hasOutcome = legacyStageTerminated || nodes.some(stage => ['Offer', '未通过'].includes(stage.status))
+  const manuallyPausedStage = custom && nodes.find(stage => stage.id === input.currentStageId && stage.status === '未开始' && stage.label === result.status)
+  if (!hasOutcome && !manuallyPausedStage) advanceStages(nodes)
   const ids = new Set()
   const labels = new Set()
   const stages = nodes.map(node => {
@@ -96,18 +101,16 @@ export function application(input) {
     }
     requireValue(!value.time || (/^([01]\d|2[0-3]):[0-5]\d$/.test(value.time) && value.date), `${label}时间或日期无效`)
     requireValue(!value.endTime || (/^([01]\d|2[0-3]):[0-5]\d$/.test(value.endTime) && value.date && value.time && value.endTime > value.time), `${label}结束时间必须晚于开始时间，并填写日期`)
-    requireValue(status !== '已安排' || Boolean(value.date), `${label}已安排时必须填写日期`)
     requireValue(!value.date || !result.applied || value.date >= result.applied, `${label}日期不能早于投递日期`)
     return value
   })
   requireValue(custom ? [...statuses, ...labels].includes(result.status) : statuses.includes(result.status), '无效的岗位状态')
-  const stageTerminated = stages.some(stage => stage.status === '已终止')
-  const stageOffered = stages.some(stage => stage.status === '已获 Offer')
+  const stageOffered = stages.some(stage => stage.status === 'Offer')
   const stageFailed = stages.some(stage => stage.status === '未通过')
-  const activeStage = stages.find(stage => ['已安排', '进行中'].includes(stage.status)) || [...stages].reverse().find(stage => stage.status === '已完成') || stages.find(stage => stage.id === input.currentStageId && stage.label === result.status && stage.status === '未开始')
-  requireValue(!(stageOffered && (stageTerminated || stageFailed)), '岗位不能同时标记为结束和 Offer')
-  const inferredTermination = stageTerminated && result.status !== '终止'
-  if (stageTerminated) {
+  const activeStage = stages.find(stage => stage.status === '进行中') || (manuallyPausedStage && stages.find(stage => stage.id === manuallyPausedStage.id)) || [...stages].reverse().find(stage => stage.status === '已完成') || stages.find(stage => stage.id === input.currentStageId && stage.label === result.status && stage.status === '未开始')
+  requireValue(!(stageOffered && (legacyStageTerminated || stageFailed)), '岗位不能同时标记为结束和 Offer')
+  const inferredTermination = legacyStageTerminated && result.status !== '终止'
+  if (legacyStageTerminated) {
     result.status = '终止'
   } else if (stageOffered) {
     result.status = 'Offer'
@@ -120,13 +123,12 @@ export function application(input) {
   requireValue(result.status !== 'Offer' || !stages.some(item => item.status === '未通过'), '存在未通过阶段，不能同时标记为 Offer')
   if (closed) {
     // Closing a process cancels pending appointments, while preserving their dates and history.
-    for (const item of stages) if (['已安排', '进行中'].includes(item.status)) item.status = '已取消'
+    for (const item of stages) if (item.status === '进行中') item.status = '已取消'
   } else {
     requireValue(!stages.some(item => item.status === '未通过'), '存在未通过阶段，请将岗位设为拒绝或终止，或修正阶段结果')
     const current = stages.findIndex(item => item.label === result.status)
-    requireValue(!stages.some((item, index) => item.status === '已安排' && index < current), '进入后续阶段前，请完成或取消此前的安排')
-    const scheduled = stages.filter(item => ['已安排', '进行中'].includes(item.status))
-    requireValue(scheduled.length <= 1, '同一岗位只能有一个进行中或已安排的阶段')
+    const scheduled = stages.filter(item => item.status === '进行中')
+    requireValue(scheduled.length <= 1, '同一岗位只能有一个进行中的阶段')
     requireValue(!scheduled.length || scheduled[0].label === result.status, '待进行的安排必须对应当前阶段')
   }
   const dated = stages.filter(item => item.date && !['未开始', '已取消', '跳过'].includes(item.status))
@@ -134,7 +136,7 @@ export function application(input) {
   for (const id of Object.keys(stageMap)) result[id] = stages.find(stage => stage.id === id) || { status: '未开始', date: '', time: '', endTime: '', location: '', link: '', requirements: '', notes: '' }
   if (custom) {
     result.workflow = stages
-    result.currentStageId = (stages.find(stage => stage.status === '已终止') || stages.find(stage => stage.status === '未通过') || stages.find(stage => stage.status === '已获 Offer') || activeStage)?.id || ''
+    result.currentStageId = (stages.find(stage => stage.status === '未通过') || stages.find(stage => stage.status === 'Offer') || activeStage)?.id || ''
   }
   return result
 }

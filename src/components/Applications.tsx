@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight, LayoutGrid, List, MapPin, X } from 'lucide-react'
-import { currentWorkflowStage, lifecycle, localDate, nextEvent, normalizedStatus, primaryApplications, relativeDate, stageFields, stageProgressLabel, timeRange, workflowFor, type Application } from '../model'
+import { currentWorkflowStage, lifecycle, localDate, matchesApplicationQuery, nextEvent, normalizedStatus, primaryApplications, relativeDate, stageFields, stageProgressLabel, timeRange, workflowFor, type Application } from '../model'
 import { Button, CompanyMark, Empty, Heading, IconButton, Pagination, SearchField } from './Shared'
 import { ApplicationProgress, ApplicationState } from './ApplicationProgress'
 import './applications.css'
@@ -74,7 +74,7 @@ export default function Applications({ apps, query, setQuery, selectedId, onOpen
   const dateFilterActive = dateFilter !== 'custom' || Boolean(customDateRange.start && customDateRange.end)
   const isRefined = Boolean(query.trim() || status || stage || city || (dateFilter && dateFilterActive))
   const filtered = useMemo(() => (isRefined ? apps : primaryApplications(apps)).filter(app =>
-    `${app.company} ${app.title} ${app.source} ${app.status}`.toLowerCase().includes(query.trim().toLowerCase())
+    matchesApplicationQuery(app, query)
     && (!status || lifecycle(app) === status)
     && (!stage || normalizedStatus(app) === stage)
     && cityMatches(app, city)
@@ -94,7 +94,7 @@ export default function Applications({ apps, query, setQuery, selectedId, onOpen
     <Heading className="jobs-heading" title="岗位" meta="记录每一个机会，走好秋招的每一步。" action={action} />
     <div className="jobs-toolbar">
       <SearchField className="jobs-search" label="搜索岗位" placeholder="搜索公司、岗位、来源…" value={query} onChange={event => change(setQuery, event.target.value)} />
-      <select aria-label="岗位状态筛选" value={status} onChange={event => change(setStatus, event.target.value)}><option value="">全部状态</option>{['进行中', '已终止', '已结束', 'Offer'].map(value => <option key={value}>{value}</option>)}</select>
+      <select aria-label="岗位状态筛选" value={status} onChange={event => change(setStatus, event.target.value)}><option value="">全部状态</option>{['进行中', '未通过', 'Offer', '已取消'].map(value => <option key={value}>{value}</option>)}</select>
       <select aria-label="招聘阶段筛选" value={stage} onChange={event => change(setStage, event.target.value)}><option value="">全部阶段</option>{[...new Set([...stageFields.map(([, label]) => label), ...apps.flatMap(app => workflowFor(app).map(stage => stage.label))])].map(value => <option key={value}>{value}</option>)}</select>
       <CityFilter value={city} options={cityOptions} onChange={value => change(setCity, value)} />
       <DateFilter value={dateFilter} range={customDateRange} onChange={changeDateFilter} onRangeChange={changeCustomDateRange} />
@@ -233,7 +233,7 @@ function KeyDate({ app }: { app: Application }) {
   const event = nextEvent(app)
   const stage = currentWorkflowStage(app)
   const state = lifecycle(app)
-  const ended = ['已终止', '已结束', 'Offer'].includes(state)
+  const ended = ['未通过', '已取消', 'Offer'].includes(state)
   return <div className="job-key-date"><div><CalendarDays size={14} /><span>{ended ? '无后续安排' : event ? `${event.date} ${timeRange(event.stage)}` : stage ? stage.label : '暂无安排'}</span></div><small>{ended ? state === 'Offer' ? '已获得 Offer' : '已结束流程' : event ? `${stageProgressLabel({ label: event.label, status: event.stage.status })}${event.stage.location ? ` · ${event.stage.location}` : ''}` : stage ? stageProgressLabel(stage) : '等待通知'}</small>{event && !ended && <em>{relativeDate(event.date)}</em>}</div>
 }
 
@@ -245,7 +245,7 @@ function NextStep({ app }: { app: Application }) {
   const event = nextEvent(app)
   const stage = currentWorkflowStage(app)
   const state = lifecycle(app)
-  const ended = ['已终止', '已结束', 'Offer'].includes(state)
+  const ended = ['未通过', '已取消', 'Offer'].includes(state)
   if (ended) return <div className="job-next-step"><strong>{state === 'Offer' ? '已获得 Offer' : '流程已结束'}</strong><small>{state}</small></div>
   if (!event && stage) return <div className="job-next-step"><strong>{stageProgressLabel(stage)}</strong><small>{stage.status === '进行中' ? '待处理' : '待安排'}</small></div>
   if (!event) return <div className="job-next-step"><strong>暂无安排</strong><small>等待通知</small></div>

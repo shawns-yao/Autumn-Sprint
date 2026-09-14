@@ -18,7 +18,7 @@ export default function ApplicationDialog({ app, apps, initialTab = 'basic', onS
   const [baseline, setBaseline] = useState(() => JSON.stringify({ ...app, workflow: workflowFor(app) }))
   const [tab, setTab] = useState<Tab>(initialTab)
   const [editingWorkflow, setEditingWorkflow] = useState(false)
-  const [stageKey, setStageKey] = useState<StageKey>(() => workflowFor(app).find(stage => ['已终止', '未通过', '已获 Offer'].includes(stage.status))?.id || workflowFor(app).find(stage => stage.label === normalizedStatus(app))?.id || workflowFor(app)[0]?.id || 'initialScreening')
+  const [stageKey, setStageKey] = useState<StageKey>(() => workflowFor(app).find(stage => stage.status === '进行中')?.id || workflowFor(app).find(stage => ['未通过', 'Offer'].includes(stage.status))?.id || workflowFor(app).find(stage => stage.label === normalizedStatus(app))?.id || workflowFor(app).find(stage => stage.status === '已取消')?.id || workflowFor(app)[0]?.id || 'initialScreening')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
@@ -63,6 +63,12 @@ export default function ApplicationDialog({ app, apps, initialTab = 'basic', onS
   const patchStage = (key: StageKey, value: Partial<Stage>) => {
     setDraft(current => {
       const workflow = (current.workflow || []).map(stage => stage.id === key ? { ...stage, ...value } : stage)
+      const previousStage = current.workflow?.find(stage => stage.id === key)
+      const resetCurrentStage = value.status === '未开始'
+        && previousStage?.status === '进行中'
+        && !workflow.some(stage => stage.status === '进行中')
+        && !workflow.some(stage => ['未通过', 'Offer'].includes(stage.status))
+      if (resetCurrentStage) return { ...current, workflow, status: previousStage.label, currentStageId: key, terminated: false }
       return value.status ? withWorkflow(current, workflow) : { ...current, workflow }
     })
     setMessage(''); setError('')
@@ -298,9 +304,12 @@ function JobSidebar({ jobs, currentId, onSelect, onCreate, onMove, onDelete, can
         onDrop={event => { event.preventDefault(); const sourceId = event.dataTransfer.getData('text/plain') || draggingId; if (sourceId) onMove(sourceId, job.id, dropTarget?.id === String(job.id) ? dropTarget.before : event.clientY < event.currentTarget.getBoundingClientRect().top + event.currentTarget.getBoundingClientRect().height / 2); finishDrag() }}
         onDragStart={event => { if (event.target instanceof Element && event.target.closest('.job-workflow-job-delete')) { event.preventDefault(); return } setDraggingId(String(job.id)); event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', String(job.id)) }}
         onDragEnd={finishDrag}>
+        <div className="job-workflow-job-side">
+          <ApplicationState app={job} />
+          <IconButton icon={X} label={`删除${job.title || '当前岗位'}`} variant="ghost" size="small" className="job-workflow-job-delete" disabled={disabled || !canDelete} onClick={event => { event.stopPropagation(); onDelete(job) }} />
+        </div>
         <button type="button" className="job-workflow-job" aria-current={job.id === currentId ? 'page' : undefined} onClick={() => onSelect(job)} disabled={disabled}
           onKeyDown={event => { if (!['ArrowUp', 'ArrowDown'].includes(event.key)) return; const target = jobs[index + (event.key === 'ArrowUp' ? -1 : 1)]; if (!target) return; event.preventDefault(); onMove(job.id, target.id, event.key === 'ArrowUp') }}>
-          <span className="job-workflow-job-top"><ApplicationState app={job} /></span>
           <strong className="job-workflow-job-title">{job.title || '岗位名称待填写'}</strong>
           <span className="job-workflow-job-stage">
             <FileText size={15} aria-hidden="true" />
@@ -310,9 +319,6 @@ function JobSidebar({ jobs, currentId, onSelect, onCreate, onMove, onDelete, can
             <time dateTime={jobStageDate(job) || undefined}>{jobStageDate(job) || '—'}</time>
           </span>
         </button>
-        <div className="job-workflow-job-side">
-          <IconButton icon={X} label={`删除${job.title || '当前岗位'}`} variant="ghost" size="small" className="job-workflow-job-delete" disabled={disabled || !canDelete} onClick={event => { event.stopPropagation(); onDelete(job) }} />
-        </div>
       </div>)}
     </div>
   </aside>
@@ -325,8 +331,9 @@ function currentJobStage(job: Application) {
 function jobStageLabel(job: Application) {
   const stage = currentJobStage(job)
   if (stage) return stageProgressLabel(stage)
-  if (job.status === 'Offer') return '已获得 Offer'
-  if (['拒绝', '终止'].includes(job.status) || job.terminated) return '流程已结束'
+  if (job.status === 'Offer') return 'Offer'
+  if (job.status === '拒绝') return '未通过'
+  if (job.status === '终止' || job.terminated) return '已取消'
   return normalizedStatus(job) || '初筛'
 }
 
