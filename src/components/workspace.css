@@ -100,7 +100,7 @@ body, .top-navigation.war-room { min-width: 320px; }
   .resource-row { flex-wrap: wrap; gap: 12px; padding: 16px; }
   .resource-actions { flex-basis: 100%; justify-content: flex-end; flex-wrap: wrap; }
   .resource-fields { grid-template-columns: minmax(0, 1fr); }
-  .job-dialog, .note-editor { width: calc(100vw - 16px); height: calc(100dvh - 16px); }
+  .job-dialog { width: calc(100vw - 16px); height: calc(100dvh - 16px); }
   .job-dialog .job-dialog-header { padding: 16px; gap: 12px; }
   .job-dialog-header > .company-mark { width: 44px; height: 44px; font-size: 15px; }
   .job-dialog-title-line h2 { font-size: 20px; }
@@ -115,7 +115,7 @@ body, .top-navigation.war-room { min-width: 320px; }
   .job-stage-remove-confirm > span { flex-basis: 100%; }
   .job-dialog-footer { padding: 12px; flex-wrap: wrap; }
   .job-dialog-footer > span { flex-basis: 100%; }
-  .note-editor-body { padding: 16px; }
+  .note-editor-inline-body { padding: 16px; }
 }
 @media (max-width: 390px) {
   .top-navigation.war-room .site-header nav button { flex-direction: column; gap: 2px; padding: 5px 9px; }

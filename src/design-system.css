@@ -181,18 +181,14 @@ button svg, a svg { flex-shrink: 0; }
 .notes-color-3 { color: #ad3b71; background: #fceaf2; }
 .notes-color-4 { color: #905b10; background: #fff4dc; }
 .notes-color-5 { color: #236e76; background: #e5f3f4; }
-.notes-markdown { font-size: 15px; color: var(--ui-text); line-height: 1.85; }
-.notes-markdown :is(h1, h2, h3, h4) { font-size: 17px; color: var(--ui-heading); }
-.notes-markdown code, .notes-markdown pre { font-size: var(--ui-font-label); }
-.notes-markdown blockquote { color: var(--ui-secondary); }
 .notes-tags button, .notes-reader-footer h3, .notes-linked-jobs strong, .notes-linked-jobs > button { font-size: var(--ui-font-small); }
 .notes-tags button { color: var(--ui-blue); }
 .notes-tags .notes-add-tag, .notes-linked-jobs > button { color: var(--ui-secondary); }
-.notes-storage-status, .notes-linked-jobs > p, .note-format-label { color: var(--ui-muted); font-size: 11px; }
+.notes-storage-status, .notes-linked-jobs > p { color: var(--ui-muted); font-size: 11px; }
 .notes-reader-empty h2 { font-size: 21px; color: var(--ui-secondary); }
 .notes-list-empty { color: var(--ui-muted); }
 
-.job-dialog, .note-editor { color: var(--ui-text); border-color: var(--ui-border); border-radius: 8px; box-shadow: 0 26px 80px #172e2538; }
+.job-dialog, .note-editor-inline { color: var(--ui-text); }
 .job-dialog-header { padding: 26px 28px 22px; }
 .job-dialog-title-line h2 { font-size: 24px; }
 .job-dialog-identity h3 { font-size: var(--ui-font-body); color: var(--ui-text); }
@@ -203,14 +199,14 @@ button svg, a svg { flex-shrink: 0; }
 .job-section-title h3, .job-quick-section h3, .job-notes-tab > h3 { font-size: var(--ui-font-section); }
 .job-section-title h4 { font-size: var(--ui-font-body); }
 .job-form-grid { gap: 16px; }
-.job-form-grid label, .job-field-label, .note-editor-body label, .settings-grid label { font-size: var(--ui-font-small); color: var(--ui-secondary); }
+.job-form-grid label, .job-field-label, .note-editor-inline-body label, .settings-grid label { font-size: var(--ui-font-small); color: var(--ui-secondary); }
 .job-form-grid input, .job-form-grid select, .job-form-grid textarea, .job-jd,
-.note-editor-body input:not([type="checkbox"]), .note-editor-body textarea,
+.note-editor-inline-body input:not([type="checkbox"]),
 .job-notes-tab textarea, .settings-grid input, .settings-grid select {
   border-color: var(--ui-border); border-radius: var(--ui-radius); color: var(--ui-text); background: #fff;
   font-size: var(--ui-font-body); line-height: 1.65;
 }
-.job-form-grid input, .job-form-grid select, .note-editor-body input:not([type="checkbox"]), .settings-grid input, .settings-grid select { height: var(--ui-control-height); padding: 7px 10px; }
+.job-form-grid input, .job-form-grid select, .note-editor-inline-body input:not([type="checkbox"]), .settings-grid input, .settings-grid select { height: var(--ui-control-height); padding: 7px 10px; }
 .job-form-grid select:disabled { color: var(--ui-text); -webkit-text-fill-color: var(--ui-text); }
 .job-jd { min-height: 180px; font-size: var(--ui-font-label); line-height: 1.85; }
 .job-stage-meta, .job-note-label, .job-sort-history { font-size: var(--ui-font-small); color: var(--ui-secondary); }
@@ -218,16 +214,15 @@ button svg, a svg { flex-shrink: 0; }
 .job-history-list > button { font-size: var(--ui-font-small); color: var(--ui-secondary); grid-template-columns: 17px minmax(42px, 1fr) auto 14px; }
 .job-history-list strong { font-size: var(--ui-font-small); }
 .job-quick-section > div { gap: 8px; }
-.job-dialog-footer > span, .note-editor-shell > footer > span { font-size: var(--ui-font-small); }
+.job-dialog-footer > span, .note-editor-inline-footer > span { font-size: var(--ui-font-small); }
 .job-save-error, .notes-error { color: var(--ui-danger); }
 .job-save-status, .job-muted-empty { color: var(--ui-muted); }
 .job-outline, .job-end-button, .job-save-button { min-height: 34px; border-radius: var(--ui-radius); font-size: var(--ui-font-small); }
 .job-outline { color: var(--ui-blue); border-color: var(--ui-border); }
 .job-end-button { color: var(--ui-danger); border-color: #edbac4; background: var(--ui-danger-soft); }
 .job-save-button { color: #fff; border-color: var(--ui-action); background: var(--ui-action); }
-.job-stage-form .job-section-title select, .job-stage-picker, .note-job-picker legend { font-size: var(--ui-font-small); color: var(--ui-secondary); }
+.job-stage-form .job-section-title select, .job-stage-picker { font-size: var(--ui-font-small); color: var(--ui-secondary); }
 .job-notes-tab > label { color: var(--ui-secondary); font-size: var(--ui-font-label); }
-.note-job-picker small { font-size: var(--ui-font-small); color: var(--ui-muted); }
 .settings-grid small, .settings-hint, .setting-rule small { font-size: var(--ui-font-small); color: var(--ui-muted); line-height: 1.6; }
 .setting-rule strong, .setting-rule > b { font-size: var(--ui-font-label); color: var(--ui-text); }
 .workflow-chip, .workflow-add, .settings-actions button { font-size: var(--ui-font-small); }
