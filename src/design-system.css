@@ -233,6 +233,11 @@ button svg, a svg { flex-shrink: 0; }
 .ui-button:focus-visible, .war-room input:focus-visible, .war-room select:focus-visible, .war-room textarea:focus-visible, .war-room button:focus-visible, .war-room a:focus-visible { outline: 2px solid #397f68; outline-offset: 3px; }
 .war-room .ui-search input:focus-visible { outline: 0; }
 .war-room input[type="checkbox"] { accent-color: var(--ui-blue); }
+.ui-tooltip { position: relative; display: inline-flex; min-width: 0; }
+.ui-tooltip-trigger { position: relative; display: inline-flex; min-width: 0; }
+.ui-tooltip-content { position: absolute; z-index: 50; left: 50%; bottom: calc(100% + 9px); min-width: max-content; opacity: 0; pointer-events: none; visibility: hidden; transform: translate(-50%, 4px); transition: opacity .14s ease, transform .14s ease, visibility .14s ease; }
+.ui-tooltip.is-open .ui-tooltip-content { opacity: 1; visibility: visible; transform: translate(-50%, 0); }
+.ui-tooltip:focus-visible { outline: 2px solid #397f68; outline-offset: 3px; }
 * { scrollbar-color: #b9c8c2 transparent; scrollbar-width: thin; }
 *::-webkit-scrollbar { width: 10px; height: 10px; }
 *::-webkit-scrollbar-thumb { border: 3px solid transparent; border-radius: 10px; background: #b9c8c2; background-clip: padding-box; }

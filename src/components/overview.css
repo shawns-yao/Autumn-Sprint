@@ -61,9 +61,18 @@
 .home-chart-lines { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: space-between; }
 .home-chart-lines i { border-top: 1px solid #eef3f1; }
 .home-chart-bars { display: grid; grid-template-columns: repeat(30, minmax(0, 1fr)); gap: 5px; height: 100%; position: relative; padding: 0 6px; }
-.home-chart-column { height: 100%; display: flex; align-items: flex-end; justify-content: center; position: relative; }
-.home-chart-column > span { width: 100%; max-width: 12px; border-radius: 3px 3px 0 0; background: #8fc7b5; }
-.home-chart-column:hover > span { background: #25856a; }
+.home-chart-column { height: 100%; display: flex; align-items: flex-end; justify-content: center; position: relative; outline: 0; }
+.home-chart-tooltip-anchor { width: 100%; max-width: 12px; height: 100%; align-items: flex-end; justify-content: center; }
+.home-chart-tooltip-anchor .ui-tooltip-trigger { width: 100%; height: 100%; align-items: flex-end; justify-content: center; }
+.home-chart-bar { display: block; width: 100%; border-radius: 3px 3px 0 0; background: #8fc7b5; }
+.home-chart-tooltip-anchor.is-open .home-chart-bar { background: #25856a; }
+.home-chart-tooltip-content { display: grid; gap: 2px; min-width: 112px; padding: 7px 9px; border: 1px solid #cfe1d9; border-radius: 5px; background: #fff; box-shadow: 0 7px 16px #203a2f26; color: #426056; }
+.home-chart-tooltip-content time { color: #74857f; font-size: 10px; line-height: 1.3; white-space: nowrap; }
+.home-chart-tooltip-content strong { color: #18775f; font-size: 12px; font-weight: 650; line-height: 1.3; white-space: nowrap; }
+.home-chart-column:first-child .home-chart-tooltip-content { left: 0; transform: translateY(4px); }
+.home-chart-column:first-child .ui-tooltip.is-open .home-chart-tooltip-content { transform: translateY(0); }
+.home-chart-column:last-child .home-chart-tooltip-content { right: 0; left: auto; transform: translateY(4px); }
+.home-chart-column:last-child .ui-tooltip.is-open .home-chart-tooltip-content { transform: translateY(0); }
 .home-chart-column small { position: absolute; top: calc(100% + 9px); font-size: 9px; color: #7b91ab; white-space: nowrap; }
 .home-events { margin-top: -5px; }
 .home-event { display: grid; grid-template-columns: 65px 44px 10px minmax(0, 1fr) 16px; gap: 12px; align-items: center; width: 100%; min-height: 45px; padding: 9px 7px; border: 0; border-top: 1px solid #edf2ef; background: #fff; text-align: left; color: #31463e; }
