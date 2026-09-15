@@ -41,7 +41,7 @@ async function check(name, action) {
   results.push({ name, passed: true, ms: Math.round(performance.now() - start) })
   console.log(`PASS ${name}`)
 }
-const blank = () => ({ status: '未开始', date: '', time: '', endTime: '', location: '', link: '', requirements: '', notes: '' })
+const blank = () => ({ status: '未开始', scheduleMode: 'exact', date: '', dateEnd: '', scheduleText: '', time: '', endTime: '', location: '', link: '', requirements: '', notes: '' })
 const localDate = () => {
   const current = new Date()
   return `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, '0')}-${String(current.getDate()).padStart(2, '0')}`
@@ -198,6 +198,21 @@ try {
     await call('/api/settings', 'POST', { ...settings, interviewEnabled: true, interviewHours: 168 })
     assert.match((await call('/api/reminders')).find(item => item.applicationId === saved.id).label, /12:00 - 13:30/)
     await call('/api/settings', 'POST', settings)
+  })
+  await check('测评支持日期范围、相对期限和文字说明', async () => {
+    const baseStage = saved.workflow.find(stage => stage.id === 'tech')
+    const rangeWorkflow = saved.workflow.map(stage => stage.id === 'tech' ? { ...baseStage, status: '进行中', scheduleMode: 'range', date: '2026-09-16', dateEnd: '2026-09-18', time: '', endTime: '' } : stage)
+    await call('/api/applications', 'POST', { ...saved, workflow: rangeWorkflow.map(stage => stage.id === 'tech' ? { ...stage, dateEnd: '2026-09-15' } : stage) }, 400)
+    saved = await call('/api/applications', 'POST', { ...saved, workflow: rangeWorkflow })
+    assert.equal(saved.workflow.find(stage => stage.id === 'tech').dateEnd, '2026-09-18')
+    const relativeWorkflow = saved.workflow.map(stage => stage.id === 'tech' ? { ...stage, scheduleMode: 'relative', date: '2026-09-16', dateEnd: '', relativeDays: 3 } : stage)
+    saved = await call('/api/applications', 'POST', { ...saved, workflow: relativeWorkflow })
+    assert.equal(saved.workflow.find(stage => stage.id === 'tech').relativeDays, 3)
+    await call('/api/applications', 'POST', { ...saved, workflow: saved.workflow.map(stage => stage.id === 'tech' ? { ...stage, relativeDays: 0 } : stage) }, 400)
+    const textWorkflow = saved.workflow.map(stage => stage.id === 'tech' ? { ...stage, scheduleMode: 'text', date: '', relativeDays: undefined, scheduleText: '九月下旬开放' } : stage)
+    saved = await call('/api/applications', 'POST', { ...saved, workflow: textWorkflow })
+    assert.equal(saved.workflow.find(stage => stage.id === 'tech').scheduleText, '九月下旬开放')
+    assert.equal((await call('/api/reminders')).some(item => item.applicationId === saved.id), false)
   })
   await check('OpenAI 兼容配置保存、密钥遮蔽与真实协议请求', async () => {
     const empty = await call('/api/ai/settings')
