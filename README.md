@@ -4,7 +4,19 @@
 
 项目以岗位为核心组织数据。同一家公司可以维护多个岗位，并保留志愿顺序；每个岗位拥有独立的招聘流程，可记录初筛、测评、笔试、面试、Offer 和终止结果。总览页提供当前流程分布、历史投递漏斗、投递趋势和即将到来的节点，适合快速判断整体进度。
 
-项目地址：<https://github.com/shawns-yao/Autumn-Sprint>
+## 页面参考
+
+首页
+
+![首页布局参考图](Image/source/home-layout-reference_20260913.png)
+
+总览
+
+![秋招总览参考图](Image/source/dashboard-reference_20260913.png)
+
+岗位
+
+![岗位列表参考图](Image/source/jobs-reference_20260913.png)
 
 ## 项目特点
 
