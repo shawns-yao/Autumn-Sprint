@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { ArrowDown, ArrowUp, CalendarDays, ExternalLink, Eye, FileText, MapPin, Pencil, Plus, Save, Trash2, X } from 'lucide-react'
-import { companyApplications, compareVolunteers, currentWorkflowStage, emptyStage, normalizedCompany, normalizedStatus, safeUrl, stageFields, stageKinds, stageProgressLabel, stageResultOptions, withWorkflow, workflowFor, type Application, type Stage, type StageKey, type StageKind, type WorkflowStage } from '../model'
+import { companyApplications, compareVolunteers, currentWorkflowStage, emptyStage, localDate, normalizedCompany, normalizedStatus, safeUrl, scheduleModes, scheduleShortLabel, stageFields, stageKinds, stageProgressLabel, stageResultOptions, withWorkflow, workflowFor, type Application, type ScheduleMode, type Stage, type StageKey, type StageKind, type WorkflowStage } from '../model'
 import { Button, CompanyMark, IconButton } from './Shared'
 import { ApplicationProgress, ApplicationState } from './ApplicationProgress'
 import ReviewEditor from './ReviewEditor'
@@ -292,6 +292,13 @@ function ApplicationDialogForm({ app, apps, initialTab = 'basic', onSelectJob, o
 
 function StageForm({ stage, index, total, onMetaChange, onMove, onRemove, onChange, editableStatus = true, showRecord = true }: { stage: WorkflowStage; index: number; total: number; onMetaChange: (value: Partial<Pick<WorkflowStage, 'label' | 'kind'>>) => void; onMove: (offset: number) => void; onRemove: () => void; onChange: (value: Partial<Stage>) => void; editableStatus?: boolean; showRecord?: boolean }) {
   const [confirmRemove, setConfirmRemove] = useState(false)
+  const scheduleMode = stage.scheduleMode || 'exact'
+  const changeScheduleMode = (mode: ScheduleMode) => {
+    if (mode === 'exact') onChange({ scheduleMode: mode, dateEnd: '', relativeDays: undefined, scheduleText: '' })
+    else if (mode === 'range') onChange({ scheduleMode: mode, dateEnd: stage.dateEnd || '', relativeDays: undefined, scheduleText: '', time: '', endTime: '' })
+    else if (mode === 'relative') onChange({ scheduleMode: mode, date: stage.date || localDate(), dateEnd: '', relativeDays: stage.relativeDays || 3, scheduleText: '', time: '', endTime: '' })
+    else onChange({ scheduleMode: mode, date: '', dateEnd: '', relativeDays: undefined, scheduleText: stage.scheduleText || '', time: '', endTime: '' })
+  }
   return <div className="job-stage-form">
     {editableStatus ? <div className="job-stage-editor-heading">
       <div className="job-stage-editor-fields">
@@ -309,8 +316,12 @@ function StageForm({ stage, index, total, onMetaChange, onMove, onRemove, onChan
     <fieldset className="job-stage-schedule">
       {editableStatus && <legend>安排信息</legend>}
       <div className="job-form-grid">
-        <label>日期<input type="date" value={stage.date} onChange={event => onChange({ date: event.target.value })} /></label>
-        <fieldset className="job-time-range-field"><legend>时间范围</legend><div className="job-time-range"><input aria-label="开始时间" type="time" value={stage.time} onChange={event => onChange({ time: event.target.value })} /><span>至</span><input aria-label="结束时间" type="time" value={stage.endTime} onChange={event => onChange({ endTime: event.target.value })} /></div></fieldset>
+        <label>安排方式<select value={scheduleMode} onChange={event => changeScheduleMode(event.target.value as ScheduleMode)}>{scheduleModes.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label>
+        {scheduleMode === 'exact' && <label>日期<input type="date" value={stage.date} onChange={event => onChange({ date: event.target.value })} /></label>}
+        {scheduleMode === 'exact' && <fieldset className="job-time-range-field job-field-wide"><legend>时间范围</legend><div className="job-time-range"><input aria-label="开始时间" type="time" value={stage.time} onChange={event => onChange({ time: event.target.value })} /><span>至</span><input aria-label="结束时间" type="time" value={stage.endTime} onChange={event => onChange({ endTime: event.target.value })} /></div></fieldset>}
+        {scheduleMode === 'range' && <fieldset className="job-date-range-field"><legend>日期范围</legend><div className="job-date-range"><input aria-label="开始日期" type="date" value={stage.date} onChange={event => onChange({ date: event.target.value })} /><span>至</span><input aria-label="结束日期" type="date" value={stage.dateEnd || ''} onChange={event => onChange({ dateEnd: event.target.value })} /></div></fieldset>}
+        {scheduleMode === 'relative' && <><label>起算日期<input type="date" value={stage.date} onChange={event => onChange({ date: event.target.value })} /></label><label>完成期限<div className="job-relative-days"><input aria-label="完成期限天数" type="number" min="1" max="365" value={stage.relativeDays || ''} onChange={event => onChange({ relativeDays: event.target.value ? Number(event.target.value) : undefined })} /><span>天内完成</span></div></label></>}
+        {scheduleMode === 'text' && <label className="job-field-wide">时间说明<input maxLength={200} placeholder="例如：九月下旬、收到邮件后开放" value={stage.scheduleText || ''} onChange={event => onChange({ scheduleText: event.target.value })} /></label>}
         <label>形式 / 地点<input value={stage.location} onChange={event => onChange({ location: event.target.value })} /></label>
         <label>地址 / 链接<input value={stage.link} onChange={event => onChange({ link: event.target.value })} /></label>
       </div>
@@ -348,7 +359,7 @@ function JobSidebar({ jobs, currentId, onSelect, onCreate, onMove, onDelete, can
             <strong>{jobStageLabel(job)}</strong>
             <span className="job-workflow-job-separator" aria-hidden="true">|</span>
             <CalendarDays size={15} aria-hidden="true" />
-            <time dateTime={jobStageDate(job) || undefined}>{jobStageDate(job) || '—'}</time>
+            <span className="job-workflow-job-date">{jobStageDate(job) || '—'}</span>
           </span>
         </button>
       </div>)}
@@ -370,5 +381,6 @@ function jobStageLabel(job: Application) {
 }
 
 function jobStageDate(job: Application) {
-  return currentJobStage(job)?.date || ''
+  const stage = currentJobStage(job)
+  return stage ? scheduleShortLabel(stage) : ''
 }

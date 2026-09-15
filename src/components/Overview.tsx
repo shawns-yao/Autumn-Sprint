@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { BarChart3, CalendarDays, ChevronRight, ClipboardList, Filter, Send, TrendingUp, Trophy, CircleX } from 'lucide-react'
-import { isClosed, localDate, normalizedStatus, recruitmentFunnel, timeRange, workflowFor, type Application, type View, type WorkflowStage } from '../model'
+import { isClosed, localDate, normalizedStatus, recruitmentFunnel, scheduleDate, scheduleLabel, timeRange, workflowFor, type Application, type View, type WorkflowStage } from '../model'
 import { Heading, SelectField, Tooltip } from './Shared'
 import './overview.css'
 
@@ -14,7 +14,7 @@ type Props = {
 
 const colors = ['#3e78d8', '#61a5dd', '#3da58c', '#68a8a0', '#d99a3c', '#df7668', '#b87943', '#cb637f']
 
-type TooltipStage = Pick<WorkflowStage, 'label' | 'status' | 'date' | 'time' | 'endTime'>
+type TooltipStage = Pick<WorkflowStage, 'label' | 'status' | 'scheduleMode' | 'date' | 'dateEnd' | 'relativeDays' | 'scheduleText' | 'time' | 'endTime'>
 type CompanyDetail = { id: string | number; company: string; status: string; tone: 'active' | 'danger' | 'muted' | 'success'; time: string }
 
 const recordedStageStatuses = new Set(['进行中', '已完成', '未通过', 'Offer', '已取消', '跳过'])
@@ -73,7 +73,7 @@ function detailStatus(app: Application, stage: TooltipStage | undefined, label: 
 }
 
 function detailTime(app: Application, stage?: TooltipStage) {
-  if (stage?.date) return [stage.date, timeRange(stage)].filter(Boolean).join(' ')
+  if (stage && scheduleLabel(stage)) return scheduleLabel(stage)
   return formatTimestamp(app.updatedAt) || '时间待补充'
 }
 
@@ -134,11 +134,13 @@ function UpcomingEvents({ apps, onOpen }: Pick<Props, 'apps' | 'onOpen'>) {
   const now = new Date()
   const today = localDate(now)
   const upcoming = apps.filter(app => !isClosed(app) && app.status !== 'Offer').flatMap(app =>
-    workflowFor(app).filter(stage => ['exam', 'interview'].includes(stage.kind)
-      && ['未开始', '进行中'].includes(stage.status) && stage.date
-      && `${stage.date}T${stage.endTime || stage.time || '23:59'}` >= `${today}T${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`)
-      .map(stage => ({ app, stage, id: `${app.id}-${stage.id}` }))
-  ).sort((a, b) => `${a.stage.date} ${a.stage.time}`.localeCompare(`${b.stage.date} ${b.stage.time}`))
+    workflowFor(app).filter(stage => {
+      const dueDate = scheduleDate(stage)
+      return ['exam', 'interview'].includes(stage.kind)
+        && ['未开始', '进行中'].includes(stage.status) && dueDate
+        && `${dueDate}T${stage.endTime || stage.time || '23:59'}` >= `${today}T${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+    }).map(stage => ({ app, stage, dueDate: scheduleDate(stage), id: `${app.id}-${stage.id}` }))
+  ).sort((a, b) => `${a.dueDate} ${a.stage.time}`.localeCompare(`${b.dueDate} ${b.stage.time}`))
   useEffect(() => {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
     let bottomTicks = 0
@@ -155,12 +157,12 @@ function UpcomingEvents({ apps, onOpen }: Pick<Props, 'apps' | 'onOpen'>) {
     return () => window.clearInterval(timer)
   }, [])
   return <div ref={listRef} className="home-events" tabIndex={upcoming.length ? 0 : undefined} aria-label="即将到来的安排" onMouseEnter={() => { paused.current = true }} onMouseLeave={() => { paused.current = false }}>
-    {upcoming.length ? upcoming.map(({ app, stage, id }) => {
-      const days = Math.round((Date.parse(`${stage.date}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86400000)
+    {upcoming.length ? upcoming.map(({ app, stage, dueDate, id }) => {
+      const days = Math.round((Date.parse(`${dueDate}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86400000)
       return <button className="home-event" key={id} onClick={() => onOpen(app)}>
         <span className="home-event-company">{app.company}</span>
         <span className="home-event-stage">{stage.label}</span>
-        <span className="home-event-time"><time>{stage.date}{stage.time ? ` ${timeRange(stage)}` : ''}</time><small>{days === 0 ? '今天' : `${days} 天后`}</small></span>
+        <span className="home-event-time"><time>{scheduleLabel(stage)}</time><small>{days === 0 ? '今天截止' : `${days} 天后截止`}</small></span>
       </button>
     }) : <div className="home-no-events"><CalendarDays size={28} /><span>暂无即将到来的安排</span></div>}
   </div>

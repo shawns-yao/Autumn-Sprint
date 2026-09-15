@@ -120,7 +120,7 @@
 .job-progress .cancelled .job-step-dot { background: #aab8c5; border-color: #aab8c5; color: #fff; }
 .job-step-dot i { width: 7px; height: 7px; border-radius: 1px; background: #fff; }
 .job-step-label { display: block; padding: 0 4px; font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #425d7c; }
-.job-progress time { display: block; min-height: 13px; margin-top: 4px; color: #8396b0; font-size: 9px; }
+.job-progress time { display: block; min-height: 13px; margin-top: 4px; padding: 0 3px; color: #8396b0; font-size: 9px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .job-progress .current time { color: #2b83f7; }
 .job-progress.compact { margin: 0 -3px; }
 .job-progress.compact li:not(:last-child)::after { top: 7px; }
@@ -237,7 +237,7 @@
 .job-workflow-job-stage { padding-top: 10px; border-top: 1px solid #e1e9f2; color: #2d6de8; }
 .job-workflow-job-stage > svg { flex-shrink: 0; color: #687f9c; }
 .job-workflow-job-stage strong { min-width: max-content; white-space: nowrap; overflow-wrap: normal; }
-.job-workflow-job-stage time { color: #687f9c; font-size: 12px; white-space: nowrap; }
+.job-workflow-job-date { min-width: 0; color: #687f9c; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .job-workflow-job-separator { color: #b4c0ce; flex-shrink: 0; }
 .job-workflow-job-side { display: flex; grid-column: 1; grid-row: 1; align-items: center; justify-content: space-between; gap: 8px; width: 100%; min-width: 0; padding: 0; }
 .job-workflow-job-side .job-state { flex-shrink: 0; min-width: 64px; padding: 7px 11px; border-radius: 5px; font-size: 11px; }
@@ -270,6 +270,14 @@
 .job-time-range { display: flex; align-items: center; gap: 4px; margin-top: 6px; border: 1px solid #dee8f5; border-radius: 4px; background: #fff; }
 .job-form-grid .job-time-range input { width: 0; flex: 1; margin: 0; border: 0; border-radius: 4px; }
 .job-time-range span { flex-shrink: 0; color: #8598b0; font-size: 12px; }
+.job-date-range-field { min-width: 0; margin: 0; padding: 0; border: 0; grid-column: 1 / -1; }
+.job-date-range-field legend { padding: 0; color: #778ba6; font-size: 11px; }
+.job-date-range { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 8px; margin-top: 6px; }
+.job-form-grid .job-date-range input { margin: 0; }
+.job-date-range span { color: #8598b0; font-size: 12px; }
+.job-relative-days { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+.job-form-grid .job-relative-days input { width: 96px; margin: 0; }
+.job-relative-days span { color: #536b86; font-size: 12px; white-space: nowrap; }
 .job-stage-remove-confirm { display: flex; align-items: center; gap: 8px; margin-bottom: 18px; padding: 12px; background: #fff7f5; border: 1px solid #efccc6; border-radius: 6px; color: #94564b; font-size: 12px; }
 .job-stage-remove-confirm span { flex: 1; overflow-wrap: anywhere; }
 .job-material-row { display: flex; align-items: center; gap: 14px; padding: 20px 0; border-bottom: 1px solid #e8eff7; }
@@ -309,6 +317,11 @@
   .job-workflow-job-side { gap: 5px; }
   .jobs-city-filter, .jobs-date-filter { width: 100%; max-width: none; }
   .jobs-date-filter-menu { right: 0; left: auto; width: min(278px, calc(100vw - 24px)); }
+  .job-stage-editor-heading { align-items: stretch; flex-direction: column; }
+  .job-stage-editor-fields, .job-form-grid { grid-template-columns: minmax(0, 1fr); }
+  .job-field-wide, .job-date-range-field { grid-column: 1; }
+  .job-date-range { grid-template-columns: minmax(0, 1fr); }
+  .job-date-range span { text-align: center; }
 }
 @media (max-width: 390px) {
   .job-workflow-sidebar { padding: 14px; }

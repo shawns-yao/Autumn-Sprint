@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState, type ButtonHTMLAttributes, type FocusEvent, type InputHTMLAttributes, type ReactNode } from 'react'
 import { Check, ChevronLeft, ChevronRight, Inbox, Search, type LucideIcon } from 'lucide-react'
-import { isClosed, normalizedStatus, workflowFor, type Application } from '../model'
+import { isClosed, normalizedStatus, scheduleShortLabel, workflowFor, type Application } from '../model'
 import HomeFlight from './HomeFlight'
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
@@ -125,7 +125,7 @@ export function ProgressRail({ app, compact = false }: { app: Application; compa
     const current = i < stages.length && index === i && !isClosed(app)
     return <div className={`progress-step ${completed ? 'done' : ''} ${current ? 'current' : ''}`} key={`${field.label}-${i}`} title={`${field.label}：${field.status || (current ? '当前阶段' : completed ? '已完成' : '未记录')}`}>
       <span className="step-dot">{completed ? <Check size={11} strokeWidth={3} /> : null}</span>
-      {!compact && <><strong>{field.label}</strong><small>{field.date?.slice(5) || '—'}</small></>}
+      {!compact && <><strong>{field.label}</strong><small>{i < stages.length ? scheduleShortLabel(stages[i]) : '—'}</small></>}
     </div>
   })}</div>
 }
