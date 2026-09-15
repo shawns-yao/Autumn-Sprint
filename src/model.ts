@@ -1,7 +1,10 @@
 export const statuses = ['未开始', '进行中', '已完成', '未通过', 'Offer', '已取消', '跳过'] as const
 export type Status = string
 export type StageReview = { html?: string; tags: string[] }
-export type Stage = { status: string; date: string; time: string; endTime: string; location: string; link: string; requirements: string; notes: string; review?: StageReview }
+export const scheduleModes = [['exact', '具体日期'], ['range', '日期范围'], ['relative', '相对期限'], ['text', '文字说明']] as const
+export type ScheduleMode = typeof scheduleModes[number][0]
+export type Stage = { status: string; scheduleMode?: ScheduleMode; date: string; dateEnd?: string; relativeDays?: number; scheduleText?: string; time: string; endTime: string; location: string; link: string; requirements: string; notes: string; review?: StageReview }
+type ScheduleValue = Pick<Stage, 'scheduleMode' | 'date' | 'dateEnd' | 'relativeDays' | 'scheduleText' | 'time' | 'endTime'>
 export const stageResultOptions = ['未开始', '进行中', '已完成', '未通过', 'Offer', '已取消', '跳过'] as const
 export const stageKinds = [['screening', '初筛'], ['exam', '测评 / 笔试'], ['interview', '面试'], ['other', '其他']] as const
 export type StageKind = typeof stageKinds[number][0]
@@ -30,7 +33,7 @@ export const normalizeStageStatus = (status: string) => legacyStageStatusAliases
 export const stageProgressLabel = (stage?: Pick<WorkflowStage, 'label' | 'status'>) => stage?.status === '进行中' ? `${stage.label}中` : stage?.label || ''
 export const workflowFor = (app: Application): WorkflowStage[] => (app.workflow ?? stagesFromFields(legacyStageFields).map(stage => ({ ...stage, ...((app as unknown as Record<string, Stage | undefined>)[stage.id] || {}) }))).map(stage => {
   const status = normalizeStageStatus(stage.status || '未开始')
-  const date = status === '已取消' || status === '跳过' || (status === '未开始' && Boolean(stage.date) && stage.date < localDate()) ? '' : stage.date
+  const date = status === '已取消' || status === '跳过' || (scheduleModeFor(stage) === 'exact' && status === '未开始' && Boolean(stage.date) && stage.date < localDate()) ? '' : stage.date
   return { ...stage, status, date }
 })
 const normalizeSearchText = (value: string) => value.toLocaleLowerCase().normalize('NFKC').replace(/[\s\-_/、,，|;；·]+/g, '')
@@ -50,16 +53,50 @@ export const normalizedStatus = (app: Application) => {
 }
 export const lifecycle = (app: Application) => app.terminated || ['终止', '已取消'].includes(app.status) ? '已取消' : app.status === '拒绝' ? '未通过' : app.status === 'Offer' ? 'Offer' : '进行中'
 export const priorityLabel = (value: string) => value === '高' ? '核心目标' : value === '低' ? '低优先级' : '中优先级'
-export const emptyStage = (): Stage => ({ status: '未开始', date: '', time: '', endTime: '', location: '', link: '', requirements: '', notes: '' })
+export const emptyStage = (): Stage => ({ status: '未开始', scheduleMode: 'exact', date: '', dateEnd: '', scheduleText: '', time: '', endTime: '', location: '', link: '', requirements: '', notes: '' })
 export const timeRange = (value: { time: string; endTime?: string }) => value.endTime ? `${value.time} - ${value.endTime}` : value.time
 export const localDate = (value = new Date()) => `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`
+const dateFromLocalValue = (value: string) => {
+  const [year, month, day] = value.split('-').map(Number)
+  return new Date(year, month - 1, day)
+}
+export const shiftLocalDate = (value: string, days: number) => {
+  const date = dateFromLocalValue(value)
+  date.setDate(date.getDate() + days)
+  return localDate(date)
+}
+export const scheduleModeFor = (stage: Pick<Stage, 'scheduleMode'>): ScheduleMode => stage.scheduleMode || 'exact'
+export function scheduleDate(stage: ScheduleValue) {
+  const mode = scheduleModeFor(stage)
+  if (mode === 'range') return stage.dateEnd || ''
+  if (mode === 'relative') return stage.date && stage.relativeDays ? shiftLocalDate(stage.date, stage.relativeDays) : ''
+  return mode === 'exact' ? stage.date : ''
+}
+export function scheduleLabel(stage: ScheduleValue) {
+  const mode = scheduleModeFor(stage)
+  if (mode === 'range') return stage.date && stage.dateEnd ? `${stage.date} 至 ${stage.dateEnd}` : stage.date || stage.dateEnd || ''
+  if (mode === 'relative') return stage.relativeDays ? `${stage.relativeDays} 天内完成` : ''
+  if (mode === 'text') return stage.scheduleText?.trim() || ''
+  return [stage.date, timeRange(stage)].filter(Boolean).join(' ')
+}
+export function scheduleShortLabel(stage: ScheduleValue) {
+  const mode = scheduleModeFor(stage)
+  if (mode === 'range') return stage.date && stage.dateEnd ? `${stage.date.slice(5)}~${stage.dateEnd.slice(5)}` : '日期待定'
+  if (mode === 'relative') return stage.relativeDays ? `${stage.relativeDays} 天内` : '期限待定'
+  if (mode === 'text') return stage.scheduleText?.trim() || '时间待定'
+  return stage.date ? stage.date.slice(5) : '—'
+}
 const completedBeforeAutoStart = new Set(['已完成', '跳过', '已取消'])
 export function advanceWorkflow(workflow: WorkflowStage[]) {
   const next = workflow.map(stage => ({ ...stage, status: normalizeStageStatus(stage.status || '未开始') }))
-  for (const stage of next) if (stage.status === '进行中' && !stage.date) stage.date = localDate()
+  for (const stage of next) if (stage.status === '进行中' && !stage.date && scheduleModeFor(stage) === 'exact') stage.date = localDate()
   if (next.some(stage => stage.status === '进行中')) return next
   const nextIndex = next.findIndex((stage, index) => stage.status === '未开始' && next.slice(0, index).every(previous => completedBeforeAutoStart.has(previous.status)))
-  if (nextIndex >= 0) next[nextIndex] = { ...next[nextIndex], status: '进行中', date: next[nextIndex].date || localDate() }
+  if (nextIndex >= 0) {
+    const stage = next[nextIndex]
+    const shouldSetDate = ['exact', 'relative'].includes(scheduleModeFor(stage))
+    next[nextIndex] = { ...stage, status: '进行中', date: shouldSetDate ? stage.date || localDate() : stage.date }
+  }
   return next
 }
 export function currentWorkflowStage(app: Application) {
@@ -107,8 +144,8 @@ export type Event = { id: string; app: Application; label: string; date: string;
 export function eventsFor(apps: Application[]): Event[] {
   return apps.flatMap(app => [
     ...(app.applied ? [{ id: `${app.id}-applied`, app, label: '投递', date: app.applied, time: '', endTime: '', stage: emptyStage(), done: true }] : []),
-    ...workflowFor(app).filter(stage => stage.date && stage.status !== '未开始').map(stage => ({
-      id: `${app.id}-${stage.id}`, app, label: stage.label, date: stage.date, time: stage.time, endTime: stage.endTime,
+    ...workflowFor(app).filter(stage => scheduleDate(stage) && stage.status !== '未开始').map(stage => ({
+      id: `${app.id}-${stage.id}`, app, label: stage.label, date: scheduleDate(stage), time: stage.time, endTime: stage.endTime,
       stage, done: ['已完成', '未通过', 'Offer', '跳过', '已取消'].includes(stage.status),
     })),
   ]).sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`))

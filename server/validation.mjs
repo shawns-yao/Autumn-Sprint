@@ -10,8 +10,14 @@ const localDate = () => {
 }
 const completedBeforeAutoStart = new Set(['已完成', '跳过', '已取消'])
 function startStage(stage) {
-  if (stage.status === '进行中' && !stage.date) stage.date = localDate()
+  if (stage.status === '进行中' && !stage.date && ['exact', 'relative'].includes(stage.scheduleMode || 'exact')) stage.date = localDate()
 }
+const shiftDate = (value, days) => {
+  const dateValue = new Date(`${value}T00:00:00Z`)
+  dateValue.setUTCDate(dateValue.getUTCDate() + days)
+  return dateValue.toISOString().slice(0, 10)
+}
+const scheduleDueDate = stage => stage.scheduleMode === 'range' ? stage.dateEnd : stage.scheduleMode === 'relative' && stage.date && stage.relativeDays ? shiftDate(stage.date, stage.relativeDays) : stage.scheduleMode === 'text' ? '' : stage.date
 function advanceStages(stages) {
   stages.forEach(startStage)
   if (stages.some(stage => stage.status === '进行中')) return
@@ -91,7 +97,11 @@ export function application(input) {
     ids.add(id); labels.add(label)
     const status = stage.status
     requireValue(stageStatuses.includes(status), `${label}结果无效`)
-    const value = { id, label, kind: stage.kind, status, date: date(stage.date, `${label}日期`), time: text(stage.time, `${label}开始时间`, 5), endTime: text(stage.endTime, `${label}结束时间`, 5),
+    const scheduleMode = text(stage.scheduleMode || 'exact', `${label}安排方式`, 20, true)
+    requireValue(['exact', 'range', 'relative', 'text'].includes(scheduleMode), `${label}安排方式无效`)
+    const value = { id, label, kind: stage.kind, status, scheduleMode, date: date(stage.date, `${label}日期`), dateEnd: date(stage.dateEnd, `${label}结束日期`),
+      relativeDays: stage.relativeDays === undefined || stage.relativeDays === null ? undefined : integer(stage.relativeDays, `${label}完成期限`, 1, 365), scheduleText: text(stage.scheduleText, `${label}时间说明`, 200),
+      time: text(stage.time, `${label}开始时间`, 5), endTime: text(stage.endTime, `${label}结束时间`, 5),
       location: text(stage.location, `${label}地点`, 500), link: url(stage.link, `${label}链接`),
       requirements: text(stage.requirements, `${label}要求`, 500000, false, true), notes: text(stage.notes, `${label}备注`, 500000, false, true) }
     if (stage.review !== undefined) {
@@ -101,6 +111,13 @@ export function application(input) {
     }
     requireValue(!value.time || (/^([01]\d|2[0-3]):[0-5]\d$/.test(value.time) && value.date), `${label}时间或日期无效`)
     requireValue(!value.endTime || (/^([01]\d|2[0-3]):[0-5]\d$/.test(value.endTime) && value.date && value.time && value.endTime > value.time), `${label}结束时间必须晚于开始时间，并填写日期`)
+    requireValue(scheduleMode === 'exact' || (!value.time && !value.endTime), `${label}只有具体日期可以填写时刻`)
+    requireValue(scheduleMode !== 'range' || (value.date && value.dateEnd && value.dateEnd >= value.date), `${label}日期范围必须完整，且结束日期不能早于开始日期`)
+    requireValue(scheduleMode !== 'relative' || (value.date && value.relativeDays), `${label}相对期限必须填写起算日期和完成天数`)
+    requireValue(scheduleMode !== 'text' || value.scheduleText, `${label}请填写时间说明`)
+    requireValue(scheduleMode === 'range' || !value.dateEnd, `${label}结束日期与安排方式不一致`)
+    requireValue(scheduleMode === 'relative' || value.relativeDays === undefined, `${label}完成期限与安排方式不一致`)
+    requireValue(scheduleMode === 'text' || !value.scheduleText, `${label}时间说明与安排方式不一致`)
     requireValue(!value.date || !result.applied || value.date >= result.applied, `${label}日期不能早于投递日期`)
     return value
   })
@@ -131,8 +148,8 @@ export function application(input) {
     requireValue(scheduled.length <= 1, '同一岗位只能有一个进行中的阶段')
     requireValue(!scheduled.length || scheduled[0].label === result.status, '待进行的安排必须对应当前阶段')
   }
-  const dated = stages.filter(item => item.date && !['未开始', '已取消', '跳过'].includes(item.status))
-  requireValue(dated.every((item, index) => !index || `${item.date} ${item.time}` >= `${dated[index - 1].date} ${dated[index - 1].time}`), '阶段日期与自定义招聘顺序不一致')
+  const dated = stages.map(item => ({ item, dueDate: scheduleDueDate(item) })).filter(({ item, dueDate }) => dueDate && !['未开始', '已取消', '跳过'].includes(item.status))
+  requireValue(dated.every(({ item, dueDate }, index) => !index || `${dueDate} ${item.time}` >= `${dated[index - 1].dueDate} ${dated[index - 1].item.time}`), '阶段日期与自定义招聘顺序不一致')
   for (const id of Object.keys(stageMap)) result[id] = stages.find(stage => stage.id === id) || { status: '未开始', date: '', time: '', endTime: '', location: '', link: '', requirements: '', notes: '' }
   if (custom) {
     result.workflow = stages

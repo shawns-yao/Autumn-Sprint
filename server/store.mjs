@@ -1,7 +1,7 @@
 import { randomUUID, createHash } from 'node:crypto'
 import { application, applicationOrder, normalizeStageStatus, stageMap, stageKind, object, text, url, identifier, integer, stringArray, requireValue, HttpError } from './validation.mjs'
 
-const emptyStage = () => ({ status: '未开始', date: '', time: '', endTime: '', location: '', link: '', requirements: '', notes: '' })
+const emptyStage = () => ({ status: '未开始', scheduleMode: 'exact', date: '', dateEnd: '', scheduleText: '', time: '', endTime: '', location: '', link: '', requirements: '', notes: '' })
 const storageName = id => Object.hasOwn(stageMap, id) ? stageMap[id] : `node-${id}`
 const defaultSettings = { staleEnabled: true, staleDays: 7, interviewEnabled: true, interviewHours: 24, examEnabled: true, examHours: 6 }
 const defaultAiSettings = { providerName: '', note: '', website: '', baseUrl: '', model: '', protocol: 'responses', apiKey: '' }
@@ -11,6 +11,13 @@ const localDate = () => {
   const current = new Date()
   return new Date(current.getTime() - current.getTimezoneOffset() * 60000).toISOString().slice(0, 10)
 }
+const shiftDate = (value, days) => {
+  const date = new Date(`${value}T00:00:00Z`)
+  date.setUTCDate(date.getUTCDate() + days)
+  return date.toISOString().slice(0, 10)
+}
+const scheduleDueDate = stage => stage.scheduleMode === 'range' ? stage.dateEnd : stage.scheduleMode === 'relative' && stage.date && stage.relativeDays ? shiftDate(stage.date, stage.relativeDays) : stage.scheduleMode === 'text' ? '' : stage.date
+const scheduleLabel = stage => stage.scheduleMode === 'range' ? `${stage.date} 至 ${stage.dateEnd}` : stage.scheduleMode === 'relative' ? `${stage.relativeDays} 天内完成` : stage.scheduleMode === 'text' ? stage.scheduleText : `${stage.date}${stage.time ? ` ${stage.time}${stage.endTime ? ` - ${stage.endTime}` : ''}` : ''}`
 export function createStore(db) {
   function rawSettings() {
     const value = db.prepare('SELECT value_json FROM app_settings WHERE id=1').get()?.value_json
@@ -107,7 +114,7 @@ export function createStore(db) {
       ON CONFLICT(application_id,stage_name) DO UPDATE SET status=excluded.status,date=excluded.date,time=excluded.time,end_time=excluded.end_time,
         location=excluded.location,link=excluded.link,requirements=excluded.requirements,notes=excluded.notes`).run({ id: value.id, stages: JSON.stringify(stages) })
     // Workflow metadata is core configuration; removed stage rows and event snapshots remain historical records.
-    db.prepare('UPDATE applications SET workflow_json=? WHERE id=?').run(value.workflow ? JSON.stringify({ stages: value.workflow.map(({ id, label, kind, review }) => ({ id, label, kind, ...(review ? { review } : {}) })), currentStageId: value.currentStageId }) : null, value.id)
+    db.prepare('UPDATE applications SET workflow_json=? WHERE id=?').run(value.workflow ? JSON.stringify({ stages: value.workflow.map(({ id, label, kind, scheduleMode, dateEnd, relativeDays, scheduleText, review }) => ({ id, label, kind, scheduleMode, ...(dateEnd ? { dateEnd } : {}), ...(relativeDays ? { relativeDays } : {}), ...(scheduleText ? { scheduleText } : {}), ...(review ? { review } : {}) })), currentStageId: value.currentStageId }) : null, value.id)
     db.prepare('INSERT INTO application_events(application_id,event_type,payload_json,created_at) VALUES (?,?,?,?)').run(value.id, previous ? 'updated' : 'created', JSON.stringify(value), now())
     return getApplication(value.id)
   })
@@ -274,10 +281,12 @@ export function createStore(db) {
         const { id: key, label } = stage
         if (!['exam', 'interview'].includes(stage.kind)) continue
         const exam = stage.kind === 'exam'
-        if (stage.status !== '进行中' || !stage.date || !(exam ? config.examEnabled : config.interviewEnabled)) continue
-        const due = new Date(`${stage.date}T${stage.time || '23:59'}:00+08:00`).getTime()
-        const ends = stage.endTime ? new Date(`${stage.date}T${stage.endTime}:00+08:00`).getTime() : due
-        if (due - current <= (exam ? config.examHours : config.interviewHours) * 3600000) result.push({ id: `${app.id}-${key}`, applicationId: app.id, company: app.company, label: `${label} · ${stage.date} ${stage.time}${stage.endTime ? ` - ${stage.endTime}` : ''}${ends < current ? ' · 已过时间，请更新结果' : due < current ? ' · 进行中' : ''}` })
+        const dueDate = scheduleDueDate(stage)
+        if (stage.status !== '进行中' || !dueDate || !(exam ? config.examEnabled : config.interviewEnabled)) continue
+        const dueTime = stage.scheduleMode === 'exact' ? stage.time || '23:59' : '23:59'
+        const due = new Date(`${dueDate}T${dueTime}:00+08:00`).getTime()
+        const ends = stage.scheduleMode === 'exact' && stage.endTime ? new Date(`${dueDate}T${stage.endTime}:00+08:00`).getTime() : due
+        if (due - current <= (exam ? config.examHours : config.interviewHours) * 3600000) result.push({ id: `${app.id}-${key}`, applicationId: app.id, company: app.company, label: `${label} · ${scheduleLabel(stage)}${ends < current ? ' · 已过时间，请更新结果' : due < current ? ' · 进行中' : ''}` })
       }
     }
     return result
