@@ -28,7 +28,11 @@ export type StageKey = string
 const legacyStageStatusAliases: Record<string, string> = { '已安排': '进行中', '已终止': '已取消', '已获 Offer': 'Offer' }
 export const normalizeStageStatus = (status: string) => legacyStageStatusAliases[status] || status
 export const stageProgressLabel = (stage?: Pick<WorkflowStage, 'label' | 'status'>) => stage?.status === '进行中' ? `${stage.label}中` : stage?.label || ''
-export const workflowFor = (app: Application): WorkflowStage[] => (app.workflow ?? stagesFromFields(legacyStageFields).map(stage => ({ ...stage, ...((app as unknown as Record<string, Stage | undefined>)[stage.id] || {}) }))).map(stage => ({ ...stage, status: normalizeStageStatus(stage.status || '未开始') }))
+export const workflowFor = (app: Application): WorkflowStage[] => (app.workflow ?? stagesFromFields(legacyStageFields).map(stage => ({ ...stage, ...((app as unknown as Record<string, Stage | undefined>)[stage.id] || {}) }))).map(stage => {
+  const status = normalizeStageStatus(stage.status || '未开始')
+  const date = status === '已取消' || status === '跳过' || (status === '未开始' && Boolean(stage.date) && stage.date < localDate()) ? '' : stage.date
+  return { ...stage, status, date }
+})
 const normalizeSearchText = (value: string) => value.toLocaleLowerCase().normalize('NFKC').replace(/[\s\-_/、,，|;；·]+/g, '')
 export const matchesApplicationQuery = (app: Application, query: string) => {
   const terms = query.split(/[\s\-_/、,，|;；·]+/).map(normalizeSearchText).filter(Boolean)
@@ -112,18 +116,21 @@ export function eventsFor(apps: Application[]): Event[] {
 export function nextEvent(app: Application) {
   return eventsFor([app]).find(event => !event.done && !isClosed(app) && app.status !== 'Offer')
 }
-const recordedStatuses = new Set(['进行中', '已完成', '未通过'])
+const recordedStatuses = new Set(['进行中', '已完成', '未通过', 'Offer'])
 export function recruitmentFunnel(apps: Application[]) {
-  const activeApps = apps.filter(app => !isClosed(app))
-  const currentStage = (app: Application) => workflowFor(app).find(stage => stage.status === '进行中')
-  const enteredExam = activeApps.filter(app => currentStage(app)?.kind === 'exam').length
-  const enteredInterview = activeApps.filter(app => currentStage(app)?.kind === 'interview').length
-  const offers = activeApps.filter(app => app.status === 'Offer').length
+  const hasRecorded = (app: Application, kind: string) => {
+    const statusKind = ['测评', '笔试', '测评 / 笔试'].includes(app.status) ? 'exam'
+      : ['AI 面试', '技术面', '一面', '二面', '三面', 'HR 面'].includes(app.status) ? 'interview' : ''
+    return statusKind === kind || workflowFor(app).some(stage => stage.kind === kind && recordedStatuses.has(stage.status))
+  }
+  const enteredExam = apps.filter(app => hasRecorded(app, 'exam'))
+  const enteredInterview = apps.filter(app => hasRecorded(app, 'interview'))
+  const offers = apps.filter(app => app.status === 'Offer' || workflowFor(app).some(stage => stage.status === 'Offer'))
   return [
-    { label: '初筛中', count: activeApps.length, description: '个未终止岗位', color: '#4c92ee' },
-    { label: '测评 / 笔试', count: enteredExam, description: '个有考试记录', color: '#9bc5f4' },
-    { label: '面试记录', count: enteredInterview, description: '个有面试记录', color: '#a9ddcc' },
-    { label: 'Offer', count: offers, description: '个 Offer', color: '#f4c8cd' },
+    { label: '全部投递', count: apps.length, applications: apps, description: '个岗位', color: '#4c92ee' },
+    { label: '测评 / 笔试', count: enteredExam.length, applications: enteredExam, description: '个有考试记录', color: '#9bc5f4' },
+    { label: '面试记录', count: enteredInterview.length, applications: enteredInterview, description: '个有面试记录', color: '#a9ddcc' },
+    { label: 'Offer', count: offers.length, applications: offers, description: '个 Offer', color: '#f4c8cd' },
   ]
 }
 export function relativeDate(date: string) {

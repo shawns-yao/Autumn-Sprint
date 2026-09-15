@@ -29,6 +29,7 @@ export default function App() {
   const [selected, setSelected] = useState<Application | null>(null)
   const [selectedTab, setSelectedTab] = useState<'basic' | 'stages' | 'interviews' | 'review'>('basic')
   const [query, setQuery] = useState('')
+  const [applicationStatusFilter, setApplicationStatusFilter] = useState('')
   const [dataState, setDataState] = useState<'loading' | 'server' | 'offline'>('loading')
   const [error, setError] = useState('')
   const generation = useRef(0)
@@ -73,6 +74,7 @@ export default function App() {
     void refresh()
   }
   const navigate = (next: View) => setView(next)
+  const navigateToApplications = (status = '') => { setApplicationStatusFilter(status); setQuery(''); setView('applications') }
   const workspaceActions = <div className="top-actions"><SearchField label="搜索岗位" value={query} placeholder="搜索公司、岗位或状态" onChange={event => { setQuery(event.target.value); if (event.target.value.trim()) setView('applications') }} /><IconButton icon={RefreshCw} label="刷新数据" onClick={refresh} /><Button variant="primary" icon={Plus} disabled={dataState !== 'server'} onClick={() => view === 'applications' ? openNewApplication() : navigate('applications')}>新建岗位</Button></div>
   return <div className="war-room top-navigation">
     <header className="site-header">
@@ -85,8 +87,8 @@ export default function App() {
       <div className="app-canvas">
         {view === 'home' && <HomePage onView={navigate} />}
         {['overview', 'applications'].includes(view) && dataState !== 'server' && <div className="connection-state" role={error ? 'alert' : 'status'}><p>{error || '正在读取岗位记录…'}</p>{error && <Button icon={RefreshCw} onClick={refresh}>重新连接</Button>}</div>}
-        {view === 'overview' && dataState === 'server' && <Overview apps={apps} onOpen={openApplication} onView={navigate} action={workspaceActions} />}
-        {view === 'applications' && dataState === 'server' && <ApplicationsView apps={apps} query={query} setQuery={setQuery} selectedId={selected?.id} onOpen={openApplication} onCreate={() => openNewApplication()} action={workspaceActions} />}
+        {view === 'overview' && dataState === 'server' && <Overview apps={apps} onOpen={openApplication} onView={navigate} onViewApplications={navigateToApplications} action={workspaceActions} />}
+        {view === 'applications' && dataState === 'server' && <ApplicationsView apps={apps} query={query} setQuery={setQuery} selectedId={selected?.id} onOpen={openApplication} onCreate={() => openNewApplication()} action={workspaceActions} initialStatus={applicationStatusFilter} />}
         {view === 'notes' && <Notes apps={apps} onOpenJob={openApplication} />}
         {view === 'documents' && <Resources />}
         {view === 'settings' && <SettingsView onSaved={refresh} />}

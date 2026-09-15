@@ -8,7 +8,7 @@ import './applications.css'
 type Props = {
   apps: Application[]; query: string; setQuery: (value: string) => void; selectedId?: string | number
   onOpen: (app: Application) => void; onCreate: () => void
-  action?: ReactNode
+  action?: ReactNode; initialStatus?: string
 }
 const citySeparators = /[/、,，|;；\s]+/
 const normalizeCity = (value: string) => value.trim().replace(/\s+/g, '').replace(/(?:特别行政区|自治州|自治县|地区|盟|市)$/, '')
@@ -61,8 +61,8 @@ const matchesDateFilter = (value: string, filter: DateFilterValue, range: DateRa
   return Boolean(start && end) && value >= start && value <= end
 }
 
-export default function Applications({ apps, query, setQuery, selectedId, onOpen, action }: Props) {
-  const [status, setStatus] = useState('')
+export default function Applications({ apps, query, setQuery, selectedId, onOpen, action, initialStatus = '' }: Props) {
+  const [status, setStatus] = useState(initialStatus)
   const [stage, setStage] = useState('')
   const [city, setCity] = useState('')
   const [dateFilter, setDateFilter] = useState<DateFilterValue>('')
@@ -70,12 +70,13 @@ export default function Applications({ apps, query, setQuery, selectedId, onOpen
   const [page, setPage] = useState(1)
   const [size, setSize] = useState(9)
   const [mode, setMode] = useState<'list' | 'grid'>('list')
+  useEffect(() => { setStatus(initialStatus); setPage(1) }, [initialStatus])
   const cityOptions = useMemo(() => [...new Set(apps.flatMap(citiesFor).map(normalizeCity).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'zh-CN')), [apps])
   const dateFilterActive = dateFilter !== 'custom' || Boolean(customDateRange.start && customDateRange.end)
   const isRefined = Boolean(query.trim() || status || stage || city || (dateFilter && dateFilterActive))
   const filtered = useMemo(() => (isRefined ? apps : primaryApplications(apps)).filter(app =>
     matchesApplicationQuery(app, query)
-    && (!status || lifecycle(app) === status)
+    && (!status || (status === '已结束' ? lifecycle(app) !== '进行中' && lifecycle(app) !== 'Offer' : lifecycle(app) === status))
     && (!stage || normalizedStatus(app) === stage)
     && cityMatches(app, city)
     && (!dateFilter || !dateFilterActive || matchesDateFilter(app.applied, dateFilter, customDateRange)),
@@ -94,7 +95,7 @@ export default function Applications({ apps, query, setQuery, selectedId, onOpen
     <Heading className="jobs-heading" title="岗位" meta="记录每一个机会，走好秋招的每一步。" action={action} />
     <div className="jobs-toolbar">
       <SearchField className="jobs-search" label="搜索岗位" placeholder="搜索公司、岗位、来源…" value={query} onChange={event => change(setQuery, event.target.value)} />
-      <select aria-label="岗位状态筛选" value={status} onChange={event => change(setStatus, event.target.value)}><option value="">全部状态</option>{['进行中', '未通过', 'Offer', '已取消'].map(value => <option key={value}>{value}</option>)}</select>
+      <select aria-label="岗位状态筛选" value={status} onChange={event => change(setStatus, event.target.value)}><option value="">全部状态</option>{['进行中', '未通过', 'Offer', '已取消', '已结束'].map(value => <option key={value}>{value}</option>)}</select>
       <select aria-label="招聘阶段筛选" value={stage} onChange={event => change(setStage, event.target.value)}><option value="">全部阶段</option>{[...new Set([...stageFields.map(([, label]) => label), ...apps.flatMap(app => workflowFor(app).map(stage => stage.label))])].map(value => <option key={value}>{value}</option>)}</select>
       <CityFilter value={city} options={cityOptions} onChange={value => change(setCity, value)} />
       <DateFilter value={dateFilter} range={customDateRange} onChange={changeDateFilter} onRangeChange={changeCustomDateRange} />

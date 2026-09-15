@@ -1,4 +1,4 @@
-import { useId, useState, type ButtonHTMLAttributes, type FocusEvent, type InputHTMLAttributes, type ReactNode } from 'react'
+import { useEffect, useId, useRef, useState, type ButtonHTMLAttributes, type FocusEvent, type InputHTMLAttributes, type ReactNode } from 'react'
 import { Check, ChevronLeft, ChevronRight, Inbox, Search, type LucideIcon } from 'lucide-react'
 import { isClosed, normalizedStatus, workflowFor, type Application } from '../model'
 import HomeFlight from './HomeFlight'
@@ -9,6 +9,8 @@ type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   icon?: LucideIcon
 }
 
+type TooltipPlacement = 'top' | 'right' | 'left'
+
 export function Button({ variant = 'secondary', size = 'normal', icon: Icon, type = 'button', className = '', children, ...props }: ButtonProps) {
   return <button {...props} type={type} className={`ui-button ui-button--${variant} ui-button--${size} ${className}`}>{Icon && <Icon size={16} aria-hidden="true" />}{children}</button>
 }
@@ -17,22 +19,76 @@ export function IconButton({ label, className = '', title, ...props }: Omit<Butt
   return <Button {...props} aria-label={label} title={title || label} className={`ui-icon-button ${className}`} />
 }
 
-export function Tooltip({ content, children, className = '', contentClassName = '', label, tabIndex }: { content: ReactNode; children: ReactNode; className?: string; contentClassName?: string; label?: string; tabIndex?: number }) {
+export function Tooltip({ content, children, className = '', contentClassName = '', label, tabIndex, placement = 'top' }: { content: ReactNode; children: ReactNode; className?: string; contentClassName?: string; label?: string; tabIndex?: number; placement?: TooltipPlacement | 'auto' }) {
   const [open, setOpen] = useState(false)
+  const [resolvedPlacement, setResolvedPlacement] = useState<TooltipPlacement>(placement === 'auto' ? 'right' : placement)
   const id = useId()
-  const handleBlur = (event: FocusEvent<HTMLSpanElement>) => {
-    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOpen(false)
+  const tooltipRef = useRef<HTMLSpanElement>(null)
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const triggerHovered = useRef(false)
+  const contentHovered = useRef(false)
+  const resolvePlacement = () => {
+    if (placement !== 'auto') return
+    const bounds = tooltipRef.current?.getBoundingClientRect()
+    if (!bounds || typeof window === 'undefined') return
+    setResolvedPlacement(window.innerWidth - bounds.right >= bounds.left ? 'right' : 'left')
   }
-  return <span className={`ui-tooltip ${open ? 'is-open' : ''} ${className}`} tabIndex={tabIndex} aria-label={label} onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)} onFocus={() => setOpen(true)} onBlur={handleBlur}>
-    <span className="ui-tooltip-trigger" aria-describedby={open ? id : undefined}>
+  const openTooltip = () => {
+    if (closeTimer.current) clearTimeout(closeTimer.current)
+    closeTimer.current = null
+    resolvePlacement()
+    setOpen(true)
+  }
+  const closeTooltip = () => {
+    if (triggerHovered.current || contentHovered.current) return
+    if (closeTimer.current) clearTimeout(closeTimer.current)
+    closeTimer.current = setTimeout(() => { closeTimer.current = null; setOpen(false) }, 180)
+  }
+  useEffect(() => () => { if (closeTimer.current) clearTimeout(closeTimer.current) }, [])
+  useEffect(() => {
+    if (!open || placement !== 'auto') return
+    const handleResize = () => resolvePlacement()
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [open, placement])
+  const handleTriggerEnter = () => {
+    triggerHovered.current = true
+    openTooltip()
+  }
+  const handleTriggerLeave = () => {
+    triggerHovered.current = false
+    closeTooltip()
+  }
+  const handleContentEnter = () => {
+    contentHovered.current = true
+    openTooltip()
+  }
+  const handleContentLeave = () => {
+    contentHovered.current = false
+    closeTooltip()
+  }
+  const handleBlur = (event: FocusEvent<HTMLSpanElement>) => {
+    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) closeTooltip()
+  }
+  return <span ref={tooltipRef} className={`ui-tooltip ui-tooltip-placement-${resolvedPlacement} ${open ? 'is-open' : ''} ${className}`} tabIndex={tabIndex} aria-label={label} onFocus={openTooltip} onBlur={handleBlur}>
+    <span className="ui-tooltip-trigger" aria-describedby={open ? id : undefined} onMouseEnter={handleTriggerEnter} onMouseLeave={handleTriggerLeave}>
       {children}
-      <span id={id} className={`ui-tooltip-content ${contentClassName}`} role="tooltip" aria-hidden={!open}>{content}</span>
+      <span id={id} className={`ui-tooltip-content ${contentClassName}`} role="tooltip" aria-hidden={!open} onMouseEnter={handleContentEnter} onMouseLeave={handleContentLeave}>{content}</span>
     </span>
   </span>
 }
 
 export function SearchField({ label, className = '', ...props }: Omit<InputHTMLAttributes<HTMLInputElement>, 'type'> & { label: string }) {
   return <label className={`ui-search ${className}`}><Search size={17} aria-hidden="true" /><input {...props} type="search" aria-label={label} /></label>
+}
+
+export function SelectField({ label, value, options, onChange, className = '' }: { label: string; value: string; options: { value: string; label: string }[]; onChange: (value: string) => void; className?: string }) {
+  const [open, setOpen] = useState(false)
+  const selected = options.find(option => option.value === value) || options[0]
+  return <div className={`ui-select ${open ? 'is-open' : ''} ${className}`}>
+    <button type="button" className="ui-select-trigger" aria-haspopup="listbox" aria-expanded={open} aria-label={label} onClick={() => setOpen(current => !current)}>{selected.label}<span aria-hidden="true">⌄</span></button>
+    {open && <div className="ui-select-menu" role="listbox" aria-label={label}>{options.map(option => <button type="button" role="option" aria-selected={option.value === value} key={option.value} onClick={() => { onChange(option.value); setOpen(false) }}>{option.label}</button>)}</div>}
+  </div>
 }
 
 export function Heading({ title, meta, eyebrow, action, className = '' }: { title: string; meta?: string; eyebrow?: string; action?: ReactNode; className?: string }) {
