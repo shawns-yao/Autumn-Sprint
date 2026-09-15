@@ -5,6 +5,7 @@ import { Button, CompanyMark, IconButton } from './Shared'
 import { ApplicationProgress, ApplicationState } from './ApplicationProgress'
 import ReviewEditor from './ReviewEditor'
 import StageReview from './StageReview'
+import { request } from '../api'
 import './applications.css'
 
 const tabs = [['basic', '基本信息'], ['stages', '招聘流程'], ['interviews', '面试记录'], ['review', '复盘']] as const
@@ -12,7 +13,38 @@ type Tab = typeof tabs[number][0]
 type Props = { app: Application; apps: Application[]; initialTab?: Tab; onSelectJob: (app: Application) => void; onCreateJob: (company?: string, initialTab?: Tab) => void; onDelete: (app: Application) => Promise<void>; onDeleteCompany: (company: string) => Promise<void>; onClose: () => void; onSave: (app: Application, companyOrder?: string[]) => Promise<Application> }
 type DiscardAction = { kind: 'close' } | { kind: 'select'; app: Application } | { kind: 'create'; company: string; initialTab: Tab } | { kind: 'delete'; app: Application } | { kind: 'delete-company'; company: string }
 
-export default function ApplicationDialog({ app, apps, initialTab = 'basic', onSelectJob, onCreateJob, onDelete, onDeleteCompany, onClose, onSave }: Props) {
+export default function ApplicationDialog(props: Props) {
+  const [detail, setDetail] = useState<Application | null>(() => props.app.summary ? null : props.app)
+  const [error, setError] = useState('')
+  const [attempt, setAttempt] = useState(0)
+  const loadingDialog = useRef<HTMLDialogElement>(null)
+  useEffect(() => {
+    if (!props.app.summary) return
+    let active = true
+    const controller = new AbortController()
+    setError('')
+    request<Application>(`/api/applications/${props.app.id}`, { signal: AbortSignal.any([controller.signal, AbortSignal.timeout(15000)]) })
+      .then(value => {
+        if (value.summary || String(value.id) !== String(props.app.id)) throw new Error('岗位详情不完整，请重试')
+        if (active) setDetail(value)
+      })
+      .catch(error => { if (active) setError((error as Error).message) })
+    return () => { active = false; controller.abort() }
+  }, [props.app.id, props.app.summary, attempt])
+  useEffect(() => {
+    if (detail) return
+    const element = loadingDialog.current
+    element?.showModal()
+    return () => element?.close()
+  }, [detail])
+  if (!detail) return <dialog ref={loadingDialog} className="job-detail-loading" aria-label="加载岗位详情" onCancel={event => { event.preventDefault(); props.onClose() }}>
+    <p role={error ? 'alert' : 'status'}>{error || '正在读取完整岗位详情…'}</p>
+    <div><Button onClick={props.onClose}>关闭</Button>{error && <Button onClick={() => setAttempt(value => value + 1)}>重试</Button>}</div>
+  </dialog>
+  return <ApplicationDialogForm {...props} app={detail} />
+}
+
+function ApplicationDialogForm({ app, apps, initialTab = 'basic', onSelectJob, onCreateJob, onDelete, onDeleteCompany, onClose, onSave }: Props) {
   const dialog = useRef<HTMLDialogElement>(null)
   const [draft, setDraft] = useState<Application>(() => ({ ...app, workflow: workflowFor(app) }))
   const [baseline, setBaseline] = useState(() => JSON.stringify({ ...app, workflow: workflowFor(app) }))

@@ -7,6 +7,7 @@ export const stageKinds = [['screening', '初筛'], ['exam', '测评 / 笔试'],
 export type StageKind = typeof stageKinds[number][0]
 export type WorkflowStage = Stage & { id: string; label: string; kind: StageKind }
 export type Application = {
+  summary?: boolean;
   id: string | number; company: string; title: string; city: string; status: Status;
   applied: string; source: string; website: string; priority: string; jd: string;
   volunteerOrder?: number;

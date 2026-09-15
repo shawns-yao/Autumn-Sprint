@@ -70,7 +70,7 @@ const server = http.createServer(async (req, res) => {
     const pathname = route.pathname
     if (req.method === 'GET') {
       if (pathname === '/api/health') return json(res, { ok: db.prepare('SELECT 1 value').get().value === 1 })
-      if (pathname === '/api/workspace') return json(res, db.transaction(() => { const applications = store.readApplications().items; return { applications, reminders: store.reminders(applications) } })())
+      if (pathname === '/api/workspace') return json(res, db.transaction(() => ({ applications: store.readApplications({ summary: true }).items }))())
       if (pathname === '/api/applications') return json(res, store.readApplications({
         page: integer(Number(route.searchParams.get('page') || 1), '页码', 1, 1000000),
         pageSize: integer(Number(route.searchParams.get('pageSize') || 20), '每页条数', 1, 200),

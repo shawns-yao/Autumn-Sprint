@@ -23,14 +23,19 @@ export function createStore(db) {
   function writeSettings(value) {
     db.prepare('INSERT INTO app_settings VALUES (1,?) ON CONFLICT(id) DO UPDATE SET value_json=excluded.value_json').run(JSON.stringify(value))
   }
-  function readApplications({ page, pageSize = 100, query = '', id } = {}) {
+  function readApplications({ page, pageSize = 100, query = '', id, summary = false } = {}) {
     const where = `WHERE a.deleted_at IS NULL AND (@query = '' OR instr(lower(c.name || ' ' || coalesce(a.title, '') || ' ' || coalesce(a.city, '') || ' ' || coalesce(a.source, '') || ' ' || a.status || ' ' || coalesce(a.workflow_json, '')), lower(@query)) > 0) AND (@id IS NULL OR a.id=@id)`
     const params = { query, id: id || null }
-    const rows = db.prepare(`SELECT a.*, c.name company_name FROM applications a JOIN companies c ON c.id = a.company_id ${where}
+    const columns = summary ? `a.id,a.title,a.city,a.status,a.applied_date,a.source,a.official_url,a.priority,
+      a.terminated,a.revision,a.updated_at,a.volunteer_order,
+      json_set(a.workflow_json, '$.stages', json((SELECT json_group_array(json_remove(value, '$.requirements', '$.notes', '$.review'))
+        FROM json_each(a.workflow_json, '$.stages')))) workflow_json` : 'a.*'
+    const rows = db.prepare(`SELECT ${columns}, c.name company_name FROM applications a JOIN companies c ON c.id = a.company_id ${where}
       ORDER BY coalesce(a.applied_date, '') DESC, a.id ${page ? 'LIMIT @limit OFFSET @offset' : ''}`).all({ ...params, ...(page ? { limit: pageSize, offset: (page - 1) * pageSize } : {}) })
     const ids = JSON.stringify(rows.map(row => row.id))
-    const stages = db.prepare('SELECT * FROM application_stages WHERE application_id IN (SELECT value FROM json_each(?))').all(ids)
-    const attachments = db.prepare(`SELECT id,application_id,name,mime,bytes FROM stored_attachments
+    const stageColumns = summary ? 'application_id,stage_name,status,date,time,end_time,location,link' : '*'
+    const stages = db.prepare(`SELECT ${stageColumns} FROM application_stages WHERE application_id IN (SELECT value FROM json_each(?))`).all(ids)
+    const attachments = summary ? [] : db.prepare(`SELECT id,application_id,name,mime,bytes FROM stored_attachments
       WHERE deleted_at IS NULL AND application_id IN (SELECT value FROM json_each(?)) ORDER BY created_at,id`).all(ids)
     const stageGroups = Map.groupBy(stages, item => item.application_id)
     const fileGroups = Map.groupBy(attachments, item => item.application_id)
@@ -49,6 +54,7 @@ export function createStore(db) {
       if (row.status === '已投递' && !metadata?.currentStageId && !hasProgress && workflow[0]) workflow = workflow.map((stage, index) => index === 0 ? { ...stage, status: '进行中', date: stage.date || fallbackStageDate } : stage)
       const currentStageId = metadata?.currentStageId || (workflow.find(stage => ['未通过', 'Offer'].includes(stage.status)) || workflow.find(stage => stage.label === storedStatus || (row.status === '技术面' && stage.id === 'firstInterview')))?.id || ''
       return {
+        ...(summary ? { summary: true } : {}),
         id: row.id, company: row.company_name, title: row.title || '', city: row.city || '', status: storedStatus,
         applied: row.applied_date || '', source: row.source || '', website: row.official_url || '', priority: row.priority || '中',
         jd: row.jd_text || '', resume: row.resume_name || '', terminated: Boolean(row.terminated), revision: row.revision, updatedAt: row.updated_at,
@@ -62,6 +68,7 @@ export function createStore(db) {
   }
   function getApplication(id) { return readApplications({ id }).items[0] }
   const saveApplication = db.transaction(input => {
+    requireValue(!input?.summary, '请先加载完整岗位详情再保存')
     const value = application(input)
     const requestedOrder = input.companyOrder === undefined ? null : applicationOrder(input.companyOrder)
     const previous = db.prepare('SELECT * FROM applications WHERE id = ?').get(value.id)

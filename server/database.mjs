@@ -80,6 +80,8 @@ export function openDatabase(filename) {
     if (!db.prepare('PRAGMA table_info(applications)').all().some(column => column.name === 'deleted_at')) {
       db.exec('ALTER TABLE applications ADD COLUMN deleted_at TEXT')
     }
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_applications_active_applied
+      ON applications(coalesce(applied_date, '') DESC, id) WHERE deleted_at IS NULL`)
     const addedVolunteerOrder = !db.prepare('PRAGMA table_info(applications)').all().some(column => column.name === 'volunteer_order')
     if (addedVolunteerOrder) {
       db.exec('ALTER TABLE applications ADD COLUMN volunteer_order INTEGER NOT NULL DEFAULT 0')
