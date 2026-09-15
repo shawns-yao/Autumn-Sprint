@@ -45,6 +45,7 @@
 | 通过环境文件配置 AI 密钥 | 已完成 | 2026-09-13 | 后端启动、模型服务配置和设置页面 | 新增本地 `.env` 与可提交模板；`AI_API_KEY` 只传给后端，非空时优先于已保存密钥，不写入保存设置、不回传原文；页面展示密钥来源并禁止修改环境密钥；本地启动读取 `.env`，修改环境文件后需重新启动后端，Docker 需重新创建后端容器 |
 | Docker 与环境配置定向检查 | 已完成 | 2026-09-13 | Compose 解析、环境读取、类型检查和生产构建 | 定向测试：Compose 配置解析通过，核对后端端口未发布、数据卷声明及密钥仅注入后端，缺少入口密码时拒绝配置；Node.js 可读取环境文件中的四个配置名称；类型检查与生产构建通过，两个前端脚本均不包含测试密钥或本机 API 地址；语法与差异检查通过，`.env` 已被 Git 忽略 |
 | 服务器部署和环境密钥真实链路验收 | 未完成 | 2026-09-13 | 容器构建启动、证书、入口认证、模型调用和数据迁移 | 本机 Docker 引擎不可连接，未构建或启动容器；尚未提供服务器连接和正式域名；已补充环境密钥优先级、保存回读及域名限制的接口定向用例，但未运行涉及数据库的脚本；未迁移本机数据、未验证真实模型或浏览器交互；本次部署改动未提交或推送 |
+| 测评与阶段支持非精确时间安排 | 已完成 | 2026-09-15 | 招聘流程、岗位列表、总览、提醒与保存校验 | 支持具体日期、日期范围、相对期限和文字说明；相对期限按起算日期计算截止日，文字说明不推断日期或生成提醒；生产构建、后端语法和新增接口定向用例通过；本地 Edge 控制不可用，未完成视觉与交互验收 |
 
 ## 2026-09-13 本轮修改文件
 
@@ -65,4 +66,12 @@
 | 容器与入口 | `Dockerfile`、`compose.yaml`、`Config/Caddyfile`、`.dockerignore` |
 | 环境配置 | `.env`（本地文件，不提交）、`.env.example`、`package.json` |
 | 后端与前端联动 | `server.mjs`、`server/store.mjs`、`src/api.ts`、`src/components/SettingsView.tsx` |
+| 定向用例和任务记录 | `Test/targeted/api.mjs`、`TODO.md` |
+
+## 2026-09-15 本轮修改文件
+
+| 范围 | 文件 |
+| --- | --- |
+| 阶段安排模型与展示 | `src/model.ts`、`src/components/ApplicationDialog.tsx`、`src/components/ApplicationProgress.tsx`、`src/components/Applications.tsx`、`src/components/Overview.tsx`、`src/components/Shared.tsx`、`src/components/applications.css` |
+| 保存校验与提醒 | `server/validation.mjs`、`server/store.mjs` |
 | 定向用例和任务记录 | `Test/targeted/api.mjs`、`TODO.md` |
