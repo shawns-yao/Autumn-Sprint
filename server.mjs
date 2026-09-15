@@ -42,11 +42,21 @@ async function readBody(req, max = 2 * 1024 * 1024) {
   })
 }
 function json(res, data, status = 200) {
-  res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' })
+  res.writeHead(status, {
+    'Content-Type': 'application/json; charset=utf-8',
+    'Cache-Control': 'no-store',
+    'X-Frame-Options': 'DENY',
+    'Content-Security-Policy': "default-src 'none'; frame-ancestors 'none'",
+    'Referrer-Policy': 'no-referrer',
+    'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+  })
   res.end(JSON.stringify(data))
 }
 const server = http.createServer(async (req, res) => {
   res.setHeader('X-Content-Type-Options', 'nosniff')
+  if (process.env.NODE_ENV === 'production' && publicOrigin?.protocol === 'https:') {
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
+  }
   try {
     const host = new URL(`http://${req.headers.host}`).hostname
     requireValue(allowedHosts.has(host), '无效主机', 403)
